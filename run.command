@@ -1,5 +1,2 @@
-cd Documents/TFM
-#/usr/local/bin/python3 individualRanking.py
+cd Documents/GitHub/Fair-Group-Recommendation
 /usr/local/bin/python3 main.py config/config.txt
-#cd Documents/TFM/tfrs
-#/usr/local/bin/python3 secondStep.py
