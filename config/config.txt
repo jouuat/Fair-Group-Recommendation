@@ -1,0 +1,20 @@
+#set up your fav configuration!
+#1) tfds_movie_lens_100k
+dataset = 1;
+
+#1)k_means_with_mca 2)similar"PearsonCC > 0,3" 3)distinct"PearsonCC<0,1" 4)random
+groupDetection = 2;
+numOfGroups = 1;
+usersPerGroup = 8;
+numOfFilmsPerGroup = 5;
+
+#1)average
+groupModelling = 1;
+#1)Z_recall
+metric=1;
+
+#embedding dimesion for the individual ranking
+embedding_dimension = 32;
+
+#where to write the solution
+solutionFile = solutions/solution.sol;
