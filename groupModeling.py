@@ -1,32 +1,42 @@
 import pandas as pd
 import numpy as np
-from preprocess import preprocess
+# from preprocess import preprocess
 from metrics import metrics
+from recommender import recommendationModel
 
 
 class groupModeling:
-    def __init__(self, config, X):
+    def __init__(self, config, groups):
         self.groupModelling = config.groupModelling
         self.metric = config.metric
-        self.X = X
+        self.groups = groups
 
-    def model(self):
+    def model(self, tfRecommender):
         # average
         if self.groupModelling == 1:
-            for group in range(len(self.X)):
-                X = self.X[group]
-                users = list(X.columns)
-                X["avg"] = (X.sum(axis=1) / len(users))
-                X.sort_values(by=['avg'], ascending=False)
-                recommendations = list(X.index.values)
-                print(recommendations)
+            totalError = list()
+            for group in range(len(self.groups)):
+                ids = self.groups[group]
+                relMatrix = recommendationModel.predict(ids, tfRecommender)
+                # print(relMatrix)
+                relMatrix["avg"] = (relMatrix.sum(axis=1) / len(ids))
+                relMatrix.sort_values(by=['avg'], ascending=False)
+                # print(relMatrix)
+                recommendations = list(relMatrix.index.values)
+                print("group", group, "recommendations:")
+                print(recommendations[:10])
                 # get the error
-                '''error = metrics(X)
+                error = metrics(relMatrix, recommendations[:20])
                 if self.metric == 1:
-                    error = error.z_recall()
-                print(error)
-
-                #movies = list(X.index.values)'''
+                    groupError = error.zRecall()
+                if self.metric == 2:
+                    groupError = error.discountedFirstHit()
+                if self.metric == 3:
+                    groupError = error.normalizedDiscountedCumulativeGain()
+                print(groupError)
+                totalError.append(groupError)
+                print(totalError)
+                # movies = list(X.index.values)'''
                 # print(X)
                 # ids, titles = self.queryXcandidate(self.X[i])
                 # puntuations = predict(ids, titles)

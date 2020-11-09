@@ -24,12 +24,12 @@ def run():
         data = dataset(config)
         ratings, movies = data.getData()
         # recommender model
-        '''recommenderModel = recommendationModel(config, ratings, movies)
-        recommenderModel.train()'''
+        recommenderModel = recommendationModel(config, ratings, movies)
+        tfRecommender = recommenderModel.train()
         groups = groupDetection(config, ratings, movies)
-        X = groups.detect()
-        modeling = groupModeling(config, X)
-        modeling.model()
+        groups = groups.detect()
+        modeling = groupModeling(config, groups)
+        modeling.model(tfRecommender)
 
     except Exception as e:
         print

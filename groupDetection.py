@@ -40,7 +40,7 @@ class groupDetection(preprocess):
             unique_users = list(np.unique(self.user_id))
             dataset = np.column_stack((self.user_id, self.movie_title, self.user_rating.astype(int)))
             dataset = pd.DataFrame(data=dataset, columns=['user_id', 'movie_title', 'user_rating'])
-            print('starting the preprocessing')
+            # print('starting the preprocessing')
             group = 0
             groups = list()  # llista de tots els grups amb els seus ids
             while group < self.numOfGroups:
@@ -49,12 +49,13 @@ class groupDetection(preprocess):
                 if self.groupDetection == 4:
                     X = np.random.choice(unique_users, size=self.usersPerGroup, replace=False)
                     groups.append(X)
-                    print(groups)
+                    # print(groups)
                     continue
+
                 # similar and distinct
                 refUserId = np.random.choice(unique_users, replace=False)
                 unique_users.remove(refUserId)
-                refUser = dataset[dataset['user_id'] == refUserId]  # & (df['nationality'] == "USA")
+                refUser = dataset[dataset['user_id'] == refUserId]
                 refMovies = refUser['movie_title'].tolist()
                 refRatings = refUser['user_rating'].tolist()
                 reference = pd.DataFrame(list(zip(refMovies, refRatings)),
@@ -67,7 +68,6 @@ class groupDetection(preprocess):
                 removedUsers = list()
                 while i < (self.usersPerGroup - 1):
                     newGroupMember = np.random.choice(unique_users, replace=False)
-                    removedUsers.append(newGroupMember)
                     new_ratings = dataset[dataset['user_id'] == newGroupMember]
                     movIndices = new_ratings['movie_title'].tolist()
                     ratings = new_ratings['user_rating'].tolist()
@@ -79,13 +79,13 @@ class groupDetection(preprocess):
                         continue
                     corr, _ = pearsonr(data[data.columns[0]], data[data.columns[-1]])
                     if corr > 0.3 and self.groupDetection == 2:
-                        print('Pearsons correlation: %.3f' % corr)
+                        # print('Pearsons correlation: %.3f' % corr)
                         i += 1
                         X.append(newGroupMember)
                         unique_users.remove(newGroupMember)
                         removedUsers.append(newGroupMember)
                     if corr < 0.1 and self.groupDetection == 3:
-                        print('Pearsons correlation: %.3f' % corr)
+                        # print('Pearsons correlation: %.3f' % corr)
                         i += 1
                         X.append(newGroupMember)
                         unique_users.remove(newGroupMember)
@@ -93,7 +93,7 @@ class groupDetection(preprocess):
                 groups.append(X)
                 unique_users = unique_users + removedUsers
                 group += 1
-                print(group, "groups created")
+                # print(group, "groups created")
                 print(groups)
             return groups
         else:

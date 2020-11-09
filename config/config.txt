@@ -4,14 +4,14 @@ dataset = 1;
 
 #1)k_means_with_mca 2)similar"PearsonCC > 0,3" 3)distinct"PearsonCC<0,1" 4)random
 groupDetection = 2;
-numOfGroups = 2;
+numOfGroups = 20;
 usersPerGroup = 8;
 numOfFilmsPerGroup = 5;
 
 #1)average
 groupModelling = 1;
-#1)Z_recall
-metric=1;
+#1)zRecall 2)discountedFirstHit 3)normalizedDiscountedCumulativeGain
+metric=3;
 
 #embedding dimesion for the individual ranking
 embedding_dimension = 32;
