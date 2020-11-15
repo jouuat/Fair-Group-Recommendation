@@ -6,6 +6,8 @@ import os
 class ValidateConfig(object):
     @staticmethod
     def validate(data):
+        return
+        '''
         # Validate dataset
         dataset = data.dataset
         if(dataset < 0):
@@ -25,3 +27,4 @@ class ValidateConfig(object):
         solutionFile = data.solutionFile
         if(len(solutionFile) == 0):
             raise Exception('Value for solutionFile is empty')
+'''

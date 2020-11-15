@@ -1,19 +1,21 @@
 #set up your fav configuration!
-#1) tfds_movie_lens_100k
-dataset = 1;
+# tfds_movie_lens_100k
+dataset = tfds_movie_lens_100k;
 
-#1)k_means_with_mca 2)similar"PearsonCC > 0,3" 3)distinct"PearsonCC<0,1" 4)random
-groupDetection = 2;
+# k_means_with_mca / similar / distinct / random
+groupDetection = random;
 numOfGroups = 20;
 usersPerGroup = 8;
 numOfFilmsPerGroup = 5;
 
-#1)average
-groupModelling = 1;
-#1)zRecall 2)discountedFirstHit 3)normalizedDiscountedCumulativeGain
-metric=3;
+# average / gfar
+groupModelling = average;
+# Number of films recommended per group
+numOfRecommendations = 20;
+# zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain)
+metric=zrecall;
 
-#embedding dimesion for the individual ranking
+#embedding dimesion for the recommender model
 embedding_dimension = 32;
 
 #where to write the solution

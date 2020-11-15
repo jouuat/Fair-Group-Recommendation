@@ -29,33 +29,39 @@ class recommendationModel(preprocess):
         cached_train = train.shuffle(100000).batch(8192).cache()
         cached_test = test.batch(4096).cache()
 
-        model.fit(cached_train, epochs=3)
-        model.evaluate(cached_test, return_dict=True)
+        checkpoint_filepath = '/tmp/checkpoint'
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath, save_weights_only=True, monitor='loss',
+                                                         mode='max')
+
+        stp_callback = tf.keras.callbacks.EarlyStopping(
+            monitor='loss', min_delta=600, patience=1,
+        )
+
+        class CustomPrintingCallback(tf.keras.callbacks.Callback):
+
+            def on_epoch_end(self, epoch, logs=None):
+                print('Average loos for epoch {} is {:7.2f}.\n'.format(epoch, logs['loss']))
+
+        model.fit(cached_train, epochs=10, verbose=0, callbacks=[stp_callback, cp_callback, CustomPrintingCallback()])
+        model.evaluate(cached_test, return_dict=True, verbose=0)
         self.model = model
         return model
         # get all the relevance matrix for all users
         # self.predict(unique_user_ids)
 
     def predict(users, model):
-        users = users
         usertensor = tf.convert_to_tensor(users[0], dtype=tf.string)
         usertensor = tf.reshape(usertensor, [1, ])
         query_embedding = model.user_model(usertensor)[0]
         query_embedding = tf.reshape(query_embedding, [1, 32])
         puntuations = model.puntuations(query_embedding)
         scores = puntuations[0].numpy()
-        # print(scores)
         movies = puntuations[1].numpy()
-        # print(movies)
         numpy_data = np.concatenate((movies.T, scores.T), axis=1)
-        # print(numpy_data)
         X = pd.DataFrame(data=numpy_data, columns=["movies", users[0]])
-        # X = pd.DataFrame(list(zip(movies, scores)), columns=['movies', users[0]])
         X = X.set_index("movies")
-        # print(X)
-        users.remove(users[0])
 
-        for user in users:
+        for user in users[1:]:
             X.drop_duplicates(inplace=True)
             usertensor = tf.convert_to_tensor(user, dtype=tf.string)
             usertensor = tf.reshape(usertensor, [1, ])

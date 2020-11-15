@@ -1,3 +1,4 @@
+import warnings
 import argparse
 import sys
 
@@ -7,6 +8,11 @@ from dataset import dataset
 from groupDetection import groupDetection
 from recommender import recommendationModel
 from groupModeling import groupModeling
+
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # don't show info, warnings and errors of tensorflow
+
+warnings.filterwarnings("ignore")  # don't show warnings (pearsonr)
 
 
 def run():
@@ -21,13 +27,18 @@ def run():
         print ('-----------------------------------------------------------------------\n')
         config = DATParser.parse(args.configFile)
         ValidateConfig.validate(config)
+        print ('----------------------------Loading dataset----------------------------\n')
         data = dataset(config)
         ratings, movies = data.getData()
-        # recommender model
         recommenderModel = recommendationModel(config, ratings, movies)
+        recommenderModel.dataInfo()
+        print ('--------------------Trainning the Recommender model--------------------\n')
         tfRecommender = recommenderModel.train()
-        groups = groupDetection(config, ratings, movies)
-        groups = groups.detect()
+        print ('----------------------------Creating groups----------------------------\n')
+        groupsClass = groupDetection(config, ratings, movies)
+        groups = groupsClass.detect()
+        groupsClass.groupInfo()
+        print ('-----------------generating recommnedations for each group-------------\n')
         modeling = groupModeling(config, groups)
         modeling.model(tfRecommender)
 

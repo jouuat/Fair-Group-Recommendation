@@ -8,27 +8,34 @@ class metrics:
         self.X = X
         self.recommendations = recommendations
 
+    def getScore(self, metric):
+        if metric.lower() == "zrecall":
+            groupScore = self.zRecall()
+        if metric.lower() == "dfh":
+            groupScore = self.discountedFirstHit()
+        if metric.lower() == "ndcg":
+            groupScore = self.normalizedDiscountedCumulativeGain()
+        return groupScore
+
     def zRecall(self):
         # proportion of relevant movies in the top-NG list
-        groupError = list()
+        groupScore = list()
         columns = list(self.X.columns)
-        ids = columns[:-1]
+        ids = columns[:-1]  # the last one is the score of the row
         for id in ids:
-            # self.X[id] = (self.X[id] >= 4).astype(int)
             relevantItems = 0
             i = 0
             while i != len(self.recommendations):
-                if self.X.at[self.recommendations[i], id] >= 1.5:
+                if self.X.at[self.recommendations[i], id] >= 1.5:  # should be greater than 5 according to recys
                     relevantItems += 1
                 i += 1
-                userError = relevantItems / i  # +2 because the rank=i+1
-            groupError.append(userError)
-        print(groupError)
-        return sum(groupError)
+                userScore = relevantItems / i  # +2 because the rank=i+1
+            groupScore.append(userScore)
+        return (sum(groupScore) / len(ids))
 
     def discountedFirstHit(self):
         # relevance in function first position of a relevant movie in the list of top-NG list
-        groupError = list()
+        groupScore = list()
         columns = list(self.X.columns)
         ids = columns[:-1]
         for id in ids:
@@ -40,16 +47,15 @@ class metrics:
                     break
                 i += 1
             if i == len(self.recommendations):
-                userError = 0
+                userScore = 0
             else:
-                userError = 1 / (math.log(i + 1, 2))  # +2 because the rank=i+1
-            groupError.append(userError)
-        print(groupError)
-        return sum(groupError)
+                userScore = 1 / (math.log(i + 1, 2))  # +2 because the rank=i+1
+            groupScore.append(userScore)
+        return (sum(groupScore) / len(ids))
 
     def normalizedDiscountedCumulativeGain(self):
         # average
-        groupError = list()
+        groupScore = list()
         columns = list(self.X.columns)
         ids = columns[:-1]
         idcg = 0
@@ -65,7 +71,6 @@ class metrics:
                 if self.X.at[self.recommendations[i - 1], id] >= 1.5:
                     relevantItems += 1
                     dcg = dcg + (relevantItems / (math.log(i + 1, 2)))
-                userError = dcg / idcg
-            groupError.append(userError)
-        print(groupError)
-        return sum(groupError)
+                userScore = dcg / idcg
+            groupScore.append(userScore)
+        return (sum(groupScore) / len(ids))
