@@ -3,6 +3,7 @@ import numpy as np
 # from preprocess import preprocess
 from metrics import metrics
 from recommender import recommendationModel
+import reputation
 
 
 class groupModeling:
@@ -11,6 +12,10 @@ class groupModeling:
         self.numOfRecommendations = config.numOfRecommendations
         self.metric = config.metric
         self.groups = groups
+        # for reputation
+        # need to add the inital matrix to get the item rated by a user
+        self.lambda_ = config.differenceImportance
+        self.p = config.p
 
     def model(self, tfRecommender):
         # AVERAGE
@@ -65,6 +70,8 @@ class groupModeling:
             totalScore = (sum(totalScores) / len(self.groups))
             # print("And a total score of:", totalScore)
         self.recommendationsInfo(totalScore, recommendations)
+
+        #
 
     def recommendationsInfo(self, totalScore, recommendations):
         print("recommendations for", len(self.groups), " groups have been created using the", self.groupModelling, "techinique,")

@@ -29,14 +29,9 @@ class preprocess:
         self.numOfFilmsPerGroup = config.numOfFilmsPerGroup
         self.movie_genres = 0
         self.candidates_title = np.concatenate(list(self.movies.batch(1000)))
-        # self.bucketized_user_age = np.concatenate(list(self.ratings.batch(1000).map(lambda x: x["bucketized_user_age"])))
         self.movie_title = np.concatenate(list(self.ratings.batch(1000).map(lambda x: x["movie_title"])))
         self.user_id = np.concatenate(list(self.ratings.batch(1000).map(lambda x: x["user_id"])))  # .astype(int) perque funcioni be ajuntar els grups
-        # self.timestamp = np.concatenate(list(self.ratings.batch(1).map(lambda x: x["timestamp"])))
-        # self.user_gender = np.concatenate(list(self.ratings.batch(1).map(lambda x: x["user_gender"])))
-        # self.user_occupation_text = np.concatenate(list(self.ratings.batch(1).map(lambda x: x["user_occupation_text"])))
         self.user_rating = np.concatenate(list(self.ratings.batch(1000).map(lambda x: x["user_rating"])))
-        # self.user_zip_code = np.concatenate(list(self.ratings.batch(1).map(lambda x: x["user_zip_code"])))
 
     def dataInfo(self):
         numOfMovies = len(np.unique(self.movie_title).tolist())

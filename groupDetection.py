@@ -10,13 +10,14 @@ class groupDetection(preprocess):
     def __init__(self, config, ratings, movie):
         super().__init__(config, ratings, movie)
         self.groupDetection = config.groupDetection
+        self.usersPerGroup = config.usersPerGroup
+        self.numOfGroups = config.numOfGroups
+        self.numOfFilmsPerGroup = config.numOfFilmsPerGroup
 
     def detect(self):
-        # X = self.usersXmovies()
         unique_users = list(np.unique(self.user_id))
         dataset = np.column_stack((self.user_id, self.movie_title, self.user_rating.astype(int)))
         dataset = pd.DataFrame(data=dataset, columns=['user_id', 'movie_title', 'user_rating'])
-        # print('starting the preprocessing')
         group = 0
         groups = list()  # llista de tots els grups amb els seus ids
         while group < self.numOfGroups:
@@ -26,7 +27,6 @@ class groupDetection(preprocess):
                 X = np.random.choice(unique_users, size=self.usersPerGroup, replace=False)
                 groups.append(X)
                 group += 1
-                # print(groups)
                 continue
 
             # similar and distinct

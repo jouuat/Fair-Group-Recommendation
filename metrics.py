@@ -18,7 +18,7 @@ class metrics:
         return groupScore
 
     def zRecall(self):
-        # proportion of relevant movies in the top-NG list
+        # users that don't have a relevant film in the top-gn
         groupScore = list()
         columns = list(self.X.columns)
         ids = columns[:-1]  # the last one is the score of the row
@@ -26,10 +26,14 @@ class metrics:
             relevantItems = 0
             i = 0
             while i != len(self.recommendations):
-                if self.X.at[self.recommendations[i], id] >= 1.5:  # should be greater than 5 according to recys
+                if self.X.at[self.recommendations[i], id] >= 1.5:  # should be greater than 4 according to recys
                     relevantItems += 1
                 i += 1
-                userScore = relevantItems / i  # +2 because the rank=i+1
+            recall = relevantItems / i
+            if recall == 0:
+                userScore = 1
+            else:
+                userScore = 0
             groupScore.append(userScore)
         return (sum(groupScore) / len(ids))
 

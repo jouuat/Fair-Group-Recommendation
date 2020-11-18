@@ -15,6 +15,10 @@ numOfRecommendations = 20;
 # zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain)
 metric=zrecall;
 
+#calculate the user reputation
+differenceImportance = 0,5;
+p = 1;
+
 #embedding dimesion for the recommender model
 embedding_dimension = 32;
 

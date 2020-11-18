@@ -22,7 +22,6 @@ class recommendationModel(preprocess):
         train, test = self.preRecommender()
         unique_movie_titles = np.unique(self.candidates_title).tolist()
         unique_user_ids = np.unique(self.user_id)
-        # unique_movie_titles[:10]
         model = recommenderModel(self.embedding_dimension, unique_user_ids, unique_movie_titles, self.movies)
         model.compile(optimizer=tf.keras.optimizers.Adagrad(learning_rate=0.1))
 
@@ -30,24 +29,21 @@ class recommendationModel(preprocess):
         cached_test = test.batch(4096).cache()
 
         checkpoint_filepath = '/tmp/checkpoint'
-        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath, save_weights_only=True, monitor='loss',
-                                                         mode='max')
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath, save_weights_only=True, monitor='loss', mode='min')
 
         stp_callback = tf.keras.callbacks.EarlyStopping(
-            monitor='loss', min_delta=600, patience=1,
+            monitor='loss', patience=5,
         )
 
         class CustomPrintingCallback(tf.keras.callbacks.Callback):
 
             def on_epoch_end(self, epoch, logs=None):
-                print('Average loos for epoch {} is {:7.2f}.\n'.format(epoch, logs['loss']))
+                print('Average loss for epoch {} is {:7.2f}.\n'.format(epoch, logs['loss']))
 
         model.fit(cached_train, epochs=10, verbose=0, callbacks=[stp_callback, cp_callback, CustomPrintingCallback()])
         model.evaluate(cached_test, return_dict=True, verbose=0)
         self.model = model
         return model
-        # get all the relevance matrix for all users
-        # self.predict(unique_user_ids)
 
     def predict(users, model):
         usertensor = tf.convert_to_tensor(users[0], dtype=tf.string)
@@ -74,11 +70,7 @@ class recommendationModel(preprocess):
             x = pd.DataFrame(data=numpy_data, columns=["movies", user])
             x = x.set_index("movies")
             x.drop_duplicates(inplace=True)
-            # print(x)
             X = X.join(x, how='inner')
-            # X = pd.concat([X, x], axis=1, join='inner')
-            # print(X)
-            # print(f"Candidates: {[movie_id_to_title[x] for x in candidates]}.")'''
         return X
 
 
@@ -124,10 +116,7 @@ class recommenderModel(tfrs.Model):
                 candidates=movies.batch(128).map(self.movie_model)
 
             ))
-        # tensorCandidates = tf.convert_to_tensor(unique, dtype=tf.string)
-        # candidates = list(map(lambda x: (tf.convert_to_tensor(x, dtype=tf.string), self.movie_model(tf.convert_to_tensor(x, dtype=tf.string))), unique_movie_titles))
         candidates = tf.data.Dataset.from_tensor_slices(unique_movie_titles)
-        # tensorCandidates = tf.convert_to_tensor(candidates, dtype=tf.string)
         self.puntuations = tfrs.layers.corpus.DatasetIndexedTopK(
             candidates=candidates.batch(128).map(lambda title: (title, self.movie_model(title))),
             k=len(unique_movie_titles)
