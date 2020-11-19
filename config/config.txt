@@ -8,15 +8,19 @@ numOfGroups = 20;
 usersPerGroup = 8;
 numOfFilmsPerGroup = 5;
 
-# average / gfar
+# average / gfar / greedylm (fairness -> Least measery & utility -> average)
 groupModelling = average;
 # Number of films recommended per group
 numOfRecommendations = 20;
 # zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain)
-metric=zrecall;
+metric= zrecall;
+
+#for greedy computations
+numOfIterations = 100;
 
 #calculate the user reputation
-differenceImportance = 0,5;
+greedylmlambda = 0.5; #higher less important fairness and more the utility
+differenceImportance = 0.5;
 p = 1;
 
 #embedding dimesion for the recommender model

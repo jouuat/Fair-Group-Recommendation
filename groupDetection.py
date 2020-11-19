@@ -2,22 +2,20 @@
 # import tensorflow_datasets as tfds
 import pandas as pd
 import numpy as np
-from preprocess import preprocess
 from scipy.stats import pearsonr
 
 
-class groupDetection(preprocess):
-    def __init__(self, config, ratings, movie):
-        super().__init__(config, ratings, movie)
+class groupDetection:
+    def __init__(self, config, ratings_pd):
         self.groupDetection = config.groupDetection
         self.usersPerGroup = config.usersPerGroup
         self.numOfGroups = config.numOfGroups
         self.numOfFilmsPerGroup = config.numOfFilmsPerGroup
+        self.ratings_pd = ratings_pd
 
     def detect(self):
-        unique_users = list(np.unique(self.user_id))
-        dataset = np.column_stack((self.user_id, self.movie_title, self.user_rating.astype(int)))
-        dataset = pd.DataFrame(data=dataset, columns=['user_id', 'movie_title', 'user_rating'])
+        unique_users = self.ratings_pd["user_id"].unique()
+        dataset = self.ratings_pd
         group = 0
         groups = list()  # llista de tots els grups amb els seus ids
         while group < self.numOfGroups:
