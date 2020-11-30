@@ -19,3 +19,13 @@ print (ratings_pd)
 print(ratings_pd['user_id'] == 'User1')
 print(ratings_pd['movie_title'] == 'Film1')
 print(((ratings_pd['movie_title'] == 'Film1') & (ratings_pd['movie_title'] == 'Film1')).any())
+print(ratings_pd[ratings_pd['user_id'] == 'User1', 'movie_title'])
+
+users = [2, 3, 4]
+scores = {'x': users}
+listModelings = list()
+listModelings.append("average")
+listModelings.append("fai")
+for modelingStrategy in listModelings:
+    scores[modelingStrategy] = list()
+print(scores)

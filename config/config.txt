@@ -2,28 +2,46 @@
 # tfds_movie_lens_100k
 dataset = tfds_movie_lens_100k;
 
+#if all = true -> groups from 2 to 8 will be created and all the groupModeling strategies, if all = false just particular cases
+all = true;
+listOfUsersPerGroup = [2 3 4 5 6 7 8];
+listOfGroupsModeling = [ gfar fai xpo our2 reputation]; #[ our2 ] [average gfar greedylm fai xpo spgreedy our our2 reputation]
+
 # k_means_with_mca / similar / distinct / random
 groupDetection = random;
-numOfGroups = 20;
-usersPerGroup = 8;
-numOfFilmsPerGroup = 5;
+numOfGroups = 10;
+usersPerGroup = 5;
+numOfFilmsPerGroup = 5; #the min num of films to perform the pearson correlation when creating groups
 
 # average / gfar / greedylm (fairness -> Least measery & utility -> average) / fai (add the most relevant films of each user)
-# / xpo (x pareto optimal) / spgreedy (envy free)
-groupModelling = spgreedy;
+# / xpo (x pareto optimal) / spgreedy (envy free) / our / oursimplified / reputation
+groupModeling = reputation;
+
 # Number of films recommended per group
-numOfRecommendations = 20;
+numOfRecommendations = 25;
+
 # zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain)
 metric= zrecall;
+
+scale = false; #all the users will have the same scale of relevances
+
 #for greedy computations
 numOfIterations = 100;
+
 mproportionality = 1; #must be = 1 otherwise won't be SPGreedy and will be MPGreedy
+
 numRelevantItems = auto; # the top num of items that will be considered relevant for the user,
 #if "auto" will be calculated in function with the number of recommendations that is necessary to retrieve
-greedylmlambda = 0.5; #higher less important fairness and more the utility
-differenceImportance = 0.5; #lambda
+
+lambdaGreedylm = 0.5; #higher less important fairness and more the utility
+
+lambdaOur = 0.5; #lambdaOur
+
+lambdaReputation = 0.8; #higher values will cause higher impact on the candidates reputation with differences with the group ratings
+
 p = 1; # 1-> sum, 2-> euclidean , 3->..
 
+nroot = 2; #larger less importance will have the variance
 
 #embedding dimesion for the recommender model
 embedding_dimension = 32;

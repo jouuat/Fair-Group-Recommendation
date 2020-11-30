@@ -26,8 +26,8 @@ class recommendationModel:
         model.compile(optimizer=tf.keras.optimizers.Adagrad(learning_rate=0.1))
         # split in train and test
         sizeDataset = len(self.ratings_pd["user_rating"].tolist())
-        train = self.ratings.take(int(sizeDataset * 0.8))
-        test = self.ratings.skip(int(sizeDataset * 0.8)).take(int(sizeDataset * 0.2))
+        train = self.ratings.take(int(sizeDataset * 0.5))
+        test = self.ratings.skip(int(sizeDataset * 0.5)).take(int(sizeDataset * 0.5))
         cached_train = train.shuffle(100000).batch(8192).cache()
         cached_test = test.batch(4096).cache()
         # define the callbacks
@@ -37,13 +37,13 @@ class recommendationModel:
         stp_callback = tf.keras.callbacks.EarlyStopping(
             monitor='loss', patience=5,
         )
-        class CustomPrintingCallback(tf.keras.callbacks.Callback):
+        '''class CustomPrintingCallback(tf.keras.callbacks.Callback):
 
             def on_epoch_end(self, epoch, logs=None):
                 print('Average loss for epoch {} is {:7.2f}.\n'.format(epoch, logs['loss']))
-        # fit and evaluate the model
-        model.fit(cached_train, epochs=1, verbose=0, callbacks=[stp_callback, cp_callback, CustomPrintingCallback()])
-        model.evaluate(cached_test, return_dict=True, verbose=0)
+        # fit and evaluate the model'''
+        model.fit(cached_train, epochs=10, verbose=1, callbacks=[stp_callback, cp_callback])  # , CustomPrintingCallback()])  # ------------- HERE ------------
+        model.evaluate(cached_test, return_dict=True, verbose=1)
         self.model = model
         return model
 

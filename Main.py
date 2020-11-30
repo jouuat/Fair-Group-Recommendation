@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import warnings
 import argparse
 import sys
@@ -33,13 +34,45 @@ def run():
         print ('--------------------Trainning the Recommender model--------------------\n')
         recommenderModel = recommendationModel(config, ratings_tf, movies_tf, ratings_pd)
         tfRecommender = recommenderModel.train()
-        print ('----------------------------Creating groups----------------------------\n')
-        groupsClass = groupDetection(config, ratings_pd)
-        groups = groupsClass.detect()
-        groupsClass.groupInfo()
-        print ('-----------------generating recommnedations for each group-------------\n')
-        modeling = groupModeling(config, groups, ratings_pd)
-        modeling.model(tfRecommender)
+        # ALL = TRUE
+        if config.all:
+            config.listOfUsersPerGroup = list(config.listOfUsersPerGroup)  # DATParser returns a map object and we want a list
+            config.listOfGroupsModeling = list(config.listOfGroupsModeling)
+            scores = {'x': config.listOfUsersPerGroup}
+            for modelingStrategy in config.listOfGroupsModeling:
+                scores[modelingStrategy] = list()
+            for usersPerGroup in config.listOfUsersPerGroup:
+                config.usersPerGroup = usersPerGroup
+                groupsClass = groupDetection(config, ratings_pd)
+                groups = groupsClass.detect()
+                for modelingStrategy in config.listOfGroupsModeling:
+                    print ('generating recommnedations with', modelingStrategy, 'technique for groups with', usersPerGroup, ' users \n')
+                    config.groupModeling = modelingStrategy
+                    modeling = groupModeling(config, groups, ratings_pd)
+                    score = modeling.model(tfRecommender)
+                    scores[modelingStrategy].append(score)
+            # multiple line plot
+            palette = plt.get_cmap('Set1')  # create a color palette
+            color = 0
+            for modelingStrategy in config.listOfGroupsModeling:
+                color += 1
+                print('x', scores['x'], 'modelingStrategy', scores[modelingStrategy], 'color', palette(color))
+                plt.plot(scores['x'], scores[modelingStrategy], marker='o', markerfacecolor=palette(color), markersize=3, color=palette(color), linewidth=1, label=modelingStrategy)
+            plt.title('%s Vs users per group for %s %s groups' % (config.metric, config.numOfGroups, config.groupDetection))
+            plt.xlabel('users per group')
+            plt.ylabel('%s' % (config.metric))
+            plt.legend()
+            plt.show()
+
+        # INDIVIDUAL CASES
+        else:
+            print ('----------------------------Creating groups----------------------------\n')
+            groupsClass = groupDetection(config, ratings_pd)
+            groups = groupsClass.detect()
+            groupsClass.groupInfo()
+            print ('-----------------generating recommnedations for each group-------------\n')
+            modeling = groupModeling(config, groups, ratings_pd)
+            score = modeling.model(tfRecommender)
 
     except Exception as e:
         print

@@ -76,8 +76,8 @@ class metrics:
             dcg = 0
             relevantItems = 0
             while i != len(self.recommendations):
-                i += 1
                 recommendedMovie = self.recommendations[i]
+                i += 1
                 if ((self.test['user_id'] == id) & (self.test['movie_title'] == recommendedMovie)).any():
                     relevantItems += 1
                     dcg = dcg + (relevantItems / (math.log(i + 1, 2)))

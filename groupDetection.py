@@ -14,7 +14,7 @@ class groupDetection:
         self.ratings_pd = ratings_pd
 
     def detect(self):
-        unique_users = self.ratings_pd["user_id"].unique()
+        unique_users = self.ratings_pd["user_id"].unique().tolist()
         dataset = self.ratings_pd
         group = 0
         groups = list()  # llista de tots els grups amb els seus ids
