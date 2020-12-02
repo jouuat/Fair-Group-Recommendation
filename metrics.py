@@ -23,10 +23,11 @@ class metrics:
         for id in self.ids:
             relevantItems = 0
             i = 0
+            seenItems = self.test[self.test['user_id'] == id]
             while i != len(self.recommendations):
                 recommendedMovie = self.recommendations[i]
                 # indistinctly of the rating if he/she has view it is relevant
-                if ((self.test['user_id'] == id) & (self.test['movie_title'] == recommendedMovie)).any():
+                if (seenItems['movie_title'] == recommendedMovie).any():
                     relevantItems += 1
                 i += 1
             userScore = relevantItems / i
