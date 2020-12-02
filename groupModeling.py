@@ -34,8 +34,8 @@ class groupModeling:
     def model(self, tfRecommender):
         # AVERAGE
         sizeDataset = len(self.ratings_pd["user_rating"].tolist())
-        train = self.ratings_pd.head(int(sizeDataset * 0.5))
-        test = self.ratings_pd.tail(int(sizeDataset * 0.5))
+        train = self.ratings_pd.head(int(sizeDataset * 0.8))
+        test = self.ratings_pd.tail(int(sizeDataset * 0.2))
         totalScores = list()
 
         bar = progressbar.ProgressBar(maxval=len(self.groups), widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
@@ -46,6 +46,29 @@ class groupModeling:
             recommendations = list()
             bar.update(group + 1)
             ids = self.groups[group]
+            '''GET IDS OF USERS THAT HAVE SIMILAR RELEVANCES
+
+            ids = list()
+            unique_users = self.ratings_pd["user_id"].unique().tolist()
+            refUserId = np.random.choice(unique_users, replace=False)
+            i = 0
+            tries = 0
+            while i != self.usersPerGroup:
+                candidateUserId = np.random.choice(unique_users, replace=False)
+                tempIds = [refUserId, candidateUserId]
+                tempMatrix = recommendationModel.predict(tempIds, tfRecommender)
+                if (max(tempMatrix[candidateUserId]) > 0.9 * max(tempMatrix[refUserId])) & (max(tempMatrix[candidateUserId]) < 1.1 * max(tempMatrix[refUserId])):
+                    ids.append(candidateUserId)
+                    i += 1
+                    tries = 0
+                if tries == 150:
+                    ids = list()
+                    tries = 0
+                    i = 0
+                    refUserId = np.random.choice(unique_users, replace=False)
+                tries += 1
+
+            END OF SIMILAR RELEVANCES '''
             relMatrix = recommendationModel.predict(ids, tfRecommender)
             # Penalize those films already seen by a user
             for id in ids:
@@ -350,7 +373,7 @@ class groupModeling:
 
             # get the error
             # print(recommendations)
-            metrics_ = metrics(test, ids, recommendations[:20])
+            metrics_ = metrics(test, ids, recommendations)
             groupScores = metrics_.getScore(self.metric)
             totalScores.append((sum(groupScores) / len(ids)))
         totalScore = (sum(totalScores) / len(self.groups))

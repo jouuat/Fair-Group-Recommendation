@@ -1,11 +1,11 @@
 #set up your fav configuration!
-# tfds_movie_lens_100k
-dataset = tfds_movie_lens_100k;
+# tfds_movie_lens_100k / tfds_movie_lens_1m
+dataset = tfds_movie_lens_100k ;
 
 #if all = true -> groups from 2 to 8 will be created and all the groupModeling strategies, if all = false just particular cases
 all = true;
 listOfUsersPerGroup = [2 3 4 5 6 7 8];
-listOfGroupsModeling = [ gfar fai xpo our2 reputation]; #[ our2 ] [average gfar greedylm fai xpo spgreedy our our2 reputation]
+listOfGroupsModeling = [ gfar our2 fai ]; #[ our2 ] [average gfar greedylm fai xpo spgreedy our our2 reputation]
 
 # k_means_with_mca / similar / distinct / random
 groupDetection = random;
@@ -21,7 +21,8 @@ groupModeling = reputation;
 numOfRecommendations = 25;
 
 # zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain)
-metric= zrecall;
+metric= ndcg;
+metricsForRecommender = true;
 
 scale = false; #all the users will have the same scale of relevances
 

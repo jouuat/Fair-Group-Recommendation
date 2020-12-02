@@ -5,8 +5,10 @@ from typing import Dict, Text
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
-from annoy import AnnoyIndex
 import pandas as pd
+from metrics import metrics
+import progressbar
+
 
 import tensorflow_recommenders as tfrs
 
@@ -18,6 +20,9 @@ class recommendationModel:
         self.ratings = ratings
         self.ratings_pd = ratings_pd
         self.movies = movies
+        self.metricsForRecommender = config.metricsForRecommender
+        self.metric = config.metric
+        self.numOfRecommendations = config.numOfRecommendations
 
     def train(self):
         unique_movie_titles = self.ratings_pd["movie_title"].unique()
@@ -26,8 +31,8 @@ class recommendationModel:
         model.compile(optimizer=tf.keras.optimizers.Adagrad(learning_rate=0.1))
         # split in train and test
         sizeDataset = len(self.ratings_pd["user_rating"].tolist())
-        train = self.ratings.take(int(sizeDataset * 0.5))
-        test = self.ratings.skip(int(sizeDataset * 0.5)).take(int(sizeDataset * 0.5))
+        train = self.ratings.take(int(sizeDataset * 0.8))
+        test = self.ratings.skip(int(sizeDataset * 0.8)).take(int(sizeDataset * 0.2))
         cached_train = train.shuffle(100000).batch(8192).cache()
         cached_test = test.batch(4096).cache()
         # define the callbacks
@@ -42,9 +47,29 @@ class recommendationModel:
             def on_epoch_end(self, epoch, logs=None):
                 print('Average loss for epoch {} is {:7.2f}.\n'.format(epoch, logs['loss']))
         # fit and evaluate the model'''
-        model.fit(cached_train, epochs=10, verbose=1, callbacks=[stp_callback, cp_callback])  # , CustomPrintingCallback()])  # ------------- HERE ------------
+        model.fit(cached_train, epochs=1, verbose=1, callbacks=[stp_callback, cp_callback])  # , CustomPrintingCallback()])  # ------------- HERE ------------
         model.evaluate(cached_test, return_dict=True, verbose=1)
         self.model = model
+        if self.metricsForRecommender:
+            print("Computing metrics for the recommender")
+            totalScores = []
+            bar = progressbar.ProgressBar(maxval=len(unique_user_ids), widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+            bar.start()
+            i = 0
+            for id in unique_user_ids:
+                i += 1
+                bar.update(i)
+                users = []
+                users.append(id)
+                relMatrix = recommendationModel.predict(users, model)
+                recommendations = list(relMatrix.index.values[:self.numOfRecommendations])
+                test_pd = self.ratings_pd.tail(int(sizeDataset * 0.2))
+                metrics_ = metrics(test_pd, users, recommendations)
+                groupScores = metrics_.getScore(self.metric)
+                totalScores.append(groupScores[0])
+            totalScore = (sum(totalScores) / len(unique_user_ids))
+            print(totalScores)
+            print(self.metric, ':', totalScore)
         return model
 
     def predict(users, model):
@@ -58,7 +83,8 @@ class recommendationModel:
         numpy_data = np.concatenate((movies.T, scores.T), axis=1)
         X = pd.DataFrame(data=numpy_data, columns=["movies", users[0]])
         X = X.set_index("movies")
-
+        if len(users) == 1:
+            return X
         for user in users[1:]:
             X.drop_duplicates(inplace=True)
             usertensor = tf.convert_to_tensor(user, dtype=tf.string)

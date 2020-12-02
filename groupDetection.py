@@ -20,14 +20,6 @@ class groupDetection:
         groups = list()  # llista de tots els grups amb els seus ids
         while group < self.numOfGroups:
             X = list()  # ids d'un grup nomes
-            # random case
-            if self.groupDetection.lower() == "random":
-                X = np.random.choice(unique_users, size=self.usersPerGroup, replace=False)
-                groups.append(X)
-                group += 1
-                continue
-
-            # similar and distinct
             refUserId = np.random.choice(unique_users, replace=False)
             unique_users.remove(refUserId)
             refUser = dataset[dataset['user_id'] == refUserId]
@@ -41,6 +33,7 @@ class groupDetection:
             X.append(refUserId)
             i = 0
             removedUsers = list()
+            pearsons = list()
             while i < (self.usersPerGroup - 1):
                 newGroupMember = np.random.choice(unique_users, replace=False)
                 new_ratings = dataset[dataset['user_id'] == newGroupMember]
@@ -59,16 +52,27 @@ class groupDetection:
                     X.append(newGroupMember)
                     unique_users.remove(newGroupMember)
                     removedUsers.append(newGroupMember)
+                    pearsons.append(corr)
                 if corr < 0.1 and self.groupDetection.lower() == "distinct":
                     # print('Pearsons correlation: %.3f' % corr)
                     i += 1
                     X.append(newGroupMember)
                     unique_users.remove(newGroupMember)
                     removedUsers.append(newGroupMember)
+                    pearsons.append(corr)
+                if self.groupDetection.lower() == "random":
+                    # print('Pearsons correlation: %.3f' % corr)
+                    i += 1
+                    X.append(newGroupMember)
+                    unique_users.remove(newGroupMember)
+                    removedUsers.append(newGroupMember)
+                    pearsons.append(corr)
+
             groups.append(X)
             unique_users = unique_users + removedUsers
             group += 1
-        return groups
+            meanPearson = sum(pearsons) / len(pearsons)
+        return groups, meanPearson
 
     def groupInfo(self):
         print(self.numOfGroups, " groups were created with", self.usersPerGroup, self.groupDetection, "users each \n")

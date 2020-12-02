@@ -27,6 +27,7 @@ class reputation:
         i = 0
         oldReputation = reputation
         for userRatedItem in usersRatedItems:
+            # print(userRatedItem)
             seenItems = userRatedItem.iloc[:, 0]
             groupRel = userRatedItem.iloc[:, 1:]
             tempOldReputation = oldReputation[:i] + oldReputation[i + 1:]

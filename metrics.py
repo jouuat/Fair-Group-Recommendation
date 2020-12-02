@@ -51,9 +51,10 @@ class metrics:
         for id in self.ids:
             # self.X[id] = (self.X[id] >= 4).astype(int)
             i = 0
+            seenItems = self.test[self.test['user_id'] == id]
             while i != len(self.recommendations):
                 recommendedMovie = self.recommendations[i]
-                if ((self.test['user_id'] == id) & (self.test['movie_title'] == recommendedMovie)).any():
+                if (seenItems['movie_title'] == recommendedMovie).any():
                     i += 1
                     break
                 i += 1
@@ -75,12 +76,13 @@ class metrics:
             i = 0
             dcg = 0
             relevantItems = 0
+            seenItems = self.test[self.test['user_id'] == id]
             while i != len(self.recommendations):
                 recommendedMovie = self.recommendations[i]
                 i += 1
-                if ((self.test['user_id'] == id) & (self.test['movie_title'] == recommendedMovie)).any():
+                if (seenItems['movie_title'] == recommendedMovie).any():
                     relevantItems += 1
-                    dcg = dcg + (relevantItems / (math.log(i + 1, 2)))
-                userScore = dcg / idcg
+                    dcg = dcg + (relevantItems / (math.log(i + 1, 10)))
+            userScore = dcg / idcg
             groupScores.append(userScore)
         return groupScores

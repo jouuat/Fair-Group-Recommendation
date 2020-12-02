@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import warnings
 import argparse
 import sys
+import numpy as np
+
 
 from DATParser import DATParser
 from ValidateConfig import ValidateConfig
@@ -39,12 +41,14 @@ def run():
             config.listOfUsersPerGroup = list(config.listOfUsersPerGroup)  # DATParser returns a map object and we want a list
             config.listOfGroupsModeling = list(config.listOfGroupsModeling)
             scores = {'x': config.listOfUsersPerGroup}
+            pearsons = list()
             for modelingStrategy in config.listOfGroupsModeling:
                 scores[modelingStrategy] = list()
             for usersPerGroup in config.listOfUsersPerGroup:
                 config.usersPerGroup = usersPerGroup
                 groupsClass = groupDetection(config, ratings_pd)
-                groups = groupsClass.detect()
+                groups, pearson = groupsClass.detect()
+                pearsons.append(0.01 * pearson)
                 for modelingStrategy in config.listOfGroupsModeling:
                     print ('generating recommnedations with', modelingStrategy, 'technique for groups with', usersPerGroup, ' users \n')
                     config.groupModeling = modelingStrategy
@@ -58,6 +62,7 @@ def run():
                 color += 1
                 print('x', scores['x'], 'modelingStrategy', scores[modelingStrategy], 'color', palette(color))
                 plt.plot(scores['x'], scores[modelingStrategy], marker='o', markerfacecolor=palette(color), markersize=3, color=palette(color), linewidth=1, label=modelingStrategy)
+                plt.fill_between(scores['x'], np.array(scores[modelingStrategy]) - np.array(pearsons), np.array(scores[modelingStrategy]) + np.array(pearsons), alpha=0.5, facecolor=palette(color))
             plt.title('%s Vs users per group for %s %s groups' % (config.metric, config.numOfGroups, config.groupDetection))
             plt.xlabel('users per group')
             plt.ylabel('%s' % (config.metric))
@@ -68,7 +73,7 @@ def run():
         else:
             print ('----------------------------Creating groups----------------------------\n')
             groupsClass = groupDetection(config, ratings_pd)
-            groups = groupsClass.detect()
+            groups, pearson = groupsClass.detect()
             groupsClass.groupInfo()
             print ('-----------------generating recommnedations for each group-------------\n')
             modeling = groupModeling(config, groups, ratings_pd)
