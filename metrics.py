@@ -82,7 +82,7 @@ class metrics:
                 i += 1
                 if (seenItems['movie_title'] == recommendedMovie).any():
                     relevantItems += 1
-                    dcg = dcg + (relevantItems / (math.log(i + 1, 10)))
+                dcg = dcg + (relevantItems / (math.log(i + 1, 10)))
             userScore = dcg / idcg
             groupScores.append(userScore)
         return groupScores
