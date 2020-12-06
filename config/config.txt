@@ -2,6 +2,9 @@
 # tfds_movie_lens_100k / tfds_movie_lens_1m
 dataset = tfds_movie_lens_100k ;
 
+#recommender layers
+layers = [ 64 32 ];
+
 #if all = true -> groups from 2 to 8 will be created and all the groupModeling strategies, if all = false just particular cases
 all = true;
 listOfUsersPerGroup = [2 3 4 5 6 7 8];
@@ -9,6 +12,7 @@ listOfGroupsModeling = [ gfar our2 fai ]; #[ our2 ] [average gfar greedylm fai x
 
 # k_means_with_mca / similar / distinct / random
 groupDetection = random;
+allUsers = true; # ensure that all the users are added to at least one group
 numOfGroups = 10;
 usersPerGroup = 5;
 numOfFilmsPerGroup = 5; #the min num of films to perform the pearson correlation when creating groups

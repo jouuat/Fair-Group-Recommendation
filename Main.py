@@ -60,7 +60,6 @@ def run():
             color = 0
             for modelingStrategy in config.listOfGroupsModeling:
                 color += 1
-                print('x', scores['x'], 'modelingStrategy', scores[modelingStrategy], 'color', palette(color))
                 plt.plot(scores['x'], scores[modelingStrategy], marker='o', markerfacecolor=palette(color), markersize=3, color=palette(color), linewidth=1, label=modelingStrategy)
                 plt.fill_between(scores['x'], np.array(scores[modelingStrategy]) - np.array(pearsons), np.array(scores[modelingStrategy]) + np.array(pearsons), alpha=0.5, facecolor=palette(color))
             plt.title('%s Vs users per group for %s %s groups' % (config.metric, config.numOfGroups, config.groupDetection))
@@ -68,6 +67,10 @@ def run():
             plt.ylabel('%s' % (config.metric))
             plt.legend()
             plt.show()
+            # print the mean scores for each modelling technique
+            for modelingStrategy in config.listOfGroupsModeling:
+                meanScore = sum(scores[modelingStrategy]) / len(scores[modelingStrategy])
+                print(config.metric, 'mean score with', modelingStrategy, 'modeling strategy is', meanScore)
 
         # INDIVIDUAL CASES
         else:

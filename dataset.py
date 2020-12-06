@@ -32,23 +32,23 @@ class dataset:
         return self.ratings, self.movies, self.ratings_pd
 
     def transorm_tfds_movie_lens(self):
-        self.movies = self.movies.map(lambda x: x["movie_title"])
+        # self.movies = self.movies.map(lambda x: x["movie_title"])
         self.ratings = self.ratings.map(lambda x: {
             "movie_title": x["movie_title"],
             "user_id": x["user_id"],
             "user_rating": x["user_rating"]
-        })  # a necessary step to be able to vatch more than 1 element
-        tf.random.set_seed(47)
+        })  # a necessary step to be able to vatch more than 1 element'''
+        tf.random.set_seed(42)
         self.ratings = self.ratings.shuffle(100000, seed=42, reshuffle_each_iteration=False)  # shuffle ratings
         self.movie_title = np.concatenate(list(self.ratings.batch(1000).map(lambda x: x["movie_title"])))
         self.user_id = np.concatenate(list(self.ratings.batch(1000).map(lambda x: x["user_id"])))
         self.user_rating = np.concatenate(list(self.ratings.batch(1000).map(lambda x: x["user_rating"])))
         ratings_np = np.column_stack((self.user_id, self.movie_title, self.user_rating.astype(int)))
         self.ratings_pd = pd.DataFrame(data=ratings_np, columns=['user_id', 'movie_title', 'user_rating'])  # no index specified for the moment
-        self.ratings = self.ratings.map(lambda x: {
+        '''self.ratings = self.ratings.map(lambda x: {
             "movie_title": x["movie_title"],
             "user_id": x["user_id"],
-        })
+        })'''
 
     def dataInfo(self):
         numOfMovies = len(np.unique(self.movie_title).tolist())
