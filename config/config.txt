@@ -1,55 +1,54 @@
-#set up your fav configuration!
-# tfds_movie_lens_100k / tfds_movie_lens_1m
-dataset = tfds_movie_lens_100k ;
+#DATASET CONFIGURATION
+# movielens100k / movielens1m
+dataset =  movielens100k ;
 
-#recommender layers
+
+#RECOMMENDER CONFIGURATION
 layers = [ 64 32 ];
-
-#if all = true -> groups from 2 to 8 will be created and all the groupModeling strategies, if all = false just particular cases
-all = true;
-listOfUsersPerGroup = [2 3 4 5 6 7 8];
-listOfGroupsModeling = [ gfar our2 fai ]; #[ our2 ] [average gfar greedylm fai xpo spgreedy our our2 reputation]
-
-# k_means_with_mca / similar / distinct / random
-groupDetection = random;
-allUsers = true; # ensure that all the users are added to at least one group
-numOfGroups = 10;
-usersPerGroup = 5;
-numOfFilmsPerGroup = 5; #the min num of films to perform the pearson correlation when creating groups
-
-# average / gfar / greedylm (fairness -> Least measery & utility -> average) / fai (add the most relevant films of each user)
-# / xpo (x pareto optimal) / spgreedy (envy free) / our / oursimplified / reputation
-groupModeling = reputation;
-
-# Number of films recommended per group
-numOfRecommendations = 25;
-
-# zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain)
-metric= ndcg;
-metricsForRecommender = true;
-
-scale = false; #all the users will have the same scale of relevances
-
-#for greedy computations
-numOfIterations = 100;
-
-mproportionality = 1; #must be = 1 otherwise won't be SPGreedy and will be MPGreedy
-
-numRelevantItems = auto; # the top num of items that will be considered relevant for the user,
-#if "auto" will be calculated in function with the number of recommendations that is necessary to retrieve
-
-lambdaGreedylm = 0.5; #higher less important fairness and more the utility
-
-lambdaOur = 0.5; #lambdaOur
-
-lambdaReputation = 0.8; #higher values will cause higher impact on the candidates reputation with differences with the group ratings
-
-p = 1; # 1-> sum, 2-> euclidean , 3->..
-
-nroot = 2; #larger less importance will have the variance
-
-#embedding dimesion for the recommender model
 embedding_dimension = 32;
+retrievalWeight = 0.00;                # ndcg increases when = 0, we keep the retrieval task for the factorized_top_k metrics
+ratingWeight = 0.85;
+rankingWeight = 1.0;
+epochs = 1;
+metricsForRecommender = false;
 
-#where to write the solution
+
+#GROUP DETECTION AND GROUP MODELLING CONFIGURATION
+groupDetection = random;                # k_means_with_mca / similar / distinct / random
+allUsers = false;                        # ensure that all the users are added to at least one group
+numOfGroups = 10;
+numOfRecommendations = 25;               # Number of films recommended per group
+listOfUsersPerGroup = [2 3 ];            #[2 3 4 5 6 7 8]
+      # average / gfar / greedylm (fairness -> Least meseary & utility -> average) / fai (add the most relevant films of each user)
+      # / xpo (x pareto optimal) / spgreedy (envy free) / our / oursimplified / reputation
+listOfGroupsModeling = [ spgreedy ];    #[ gfar our2 fai reputation ] [average gfar greedylm fai xpo spgreedy our our2 reputation]
+usersPerGroup = 0;                        #just to initialize the variable in the config object
+groupModeling = 0;
+scale = false;                          #all the users will have the same scale of relevances
+
+
+#GROUP MODELLING STRATEGIES PARAMETERS
+numOfIterations = 100;                  #for greedy computations
+mproportionality = 1;                   #must be = 1 otherwise won't be SPGreedy and will be MPGreedy
+numRelevantItems = auto;                # the top num of items that will be considered relevant for the user,
+      #if "auto" will be calculated in function with the number of recommendations that is necessary to retrieve
+lambdaGreedylm = 0.5;                   #higher less important fairness and more the utility
+lambdaOur = 0.5;                        #lambdaOur
+lambdaReputation = 0.8;                 #higher values will cause higher impact on the candidates reputation with differences with the group ratings
+p = 1;                                  # 1-> sum, 2-> euclidean , 3->..
+nroot = 2;                              #larger less importance will have the variance
+
+
+#METRICS CONFIGURATION
+        # zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain)
+metric= ndcg;
+mproportionality = 1;                   #must be = 1 otherwise won't be SPGreedy and will be MPGreedy
+lambdaGreedylm = 0.5;                   #higher less important fairness and more the utility
+lambdaOur = 0.5;                        #lambdaOur
+lambdaReputation = 0.8;                 #higher values will cause higher impact on the candidates reputation with differences with the group ratings
+p = 1;                                  # 1-> sum, 2-> euclidean , 3->..
+nroot = 2;                              #larger less importance will have the variance
+
+
+#OUTPUT FILE
 solutionFile = solutions/solution.sol;

@@ -1,89 +1,113 @@
 import pandas as pd
 import numpy as np
 import math
+import progressbar
 
 
 class metrics:
-    def __init__(self, test, ids, recommendations):
+    def __init__(self, config, test, groups, recommendations):
         self.test = test
         self.recommendations = recommendations
-        self.ids = ids
+        self.groups = groups
+        self.metric = config.metric
+        self.numOfRecommendations = config.numOfRecommendations
 
-    def getScore(self, metric):
-        if metric.lower() == "zrecall":
+    def getScore(self):
+        if self.metric.lower() == "zrecall":
             groupScore = self.zRecall()
-        if metric.lower() == "dfh":
+        if self.metric.lower() == "dfh":
             groupScore = self.discountedFirstHit()
-        if metric.lower() == "ndcg":
-            groupScore = self.normalizedDiscountedCumulativeGain()
+        if self.metric.lower() == "ndcg":
+            idcg = 0
+            for i in range(self.numOfRecommendations):
+                idcg = idcg + (i + 1) / (math.log(i + 2, 10))  # +2 i +1 perque comença a 0 i acaba a 19
+            groupScore = self.normalizedDiscountedCumulativeGain(idcg)
         return groupScore
 
-    def recall(self):
-        groupScores = list()
-        for id in self.ids:
-            relevantItems = 0
-            i = 0
-            seenItems = self.test[self.test['user_id'] == id]
-            while i != len(self.recommendations):
-                recommendedMovie = self.recommendations[i]
-                # indistinctly of the rating if he/she has view it is relevant
-                if (seenItems['movie_title'] == recommendedMovie).any():
-                    relevantItems += 1
-                i += 1
-            userScore = relevantItems / i
-            groupScores.append(userScore)
-        return groupScores
-
     def zRecall(self):
-        # users that don't have a relevant film in the top-gn
         groupScores = list()
-        recalls = self.recall()
-        for recall in recalls:
-            if recall == 0:
-                userScore = 1
-            else:
-                userScore = 0
-            groupScores.append(userScore)
-        return groupScores
+        bar = progressbar.ProgressBar(maxval=len(self.groups), widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar.start()
+        for group in range(len(self.groups)):
+            tempUsersScores = list()
+            bar.update(group + 1)
+            ids = self.groups[group]["members"]
+            recommendations = self.recommendations[group]["recommendations"]
+            for id in ids:
+                seenItems = self.test[self.test['user_id'] == id]
+                seenItems = list(seenItems['movie_title'].values)
+                matches = list(set(seenItems) & set(recommendations))
+                if len(matches) == 0:
+                    userScore = 1
+                else:
+                    userScore = 0
+                tempUsersScores.append(userScore)
+            groupScores.append((sum(tempUsersScores) / len(ids)))
+        totalScore = (sum(groupScores) / len(self.groups))
+        bar.finish()
+        return totalScore
 
     def discountedFirstHit(self):
         # relevance in function first position of a relevant movie in the list of top-NG list
         groupScores = list()
-        for id in self.ids:
-            # self.X[id] = (self.X[id] >= 4).astype(int)
-            i = 0
-            seenItems = self.test[self.test['user_id'] == id]
-            while i != len(self.recommendations):
-                recommendedMovie = self.recommendations[i]
-                if (seenItems['movie_title'] == recommendedMovie).any():
-                    i += 1
+        bar = progressbar.ProgressBar(maxval=len(self.groups), widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar.start()
+        for group in range(len(self.groups)):
+            bar.update(group + 1)
+            ids = self.groups[group]["members"]
+            recommendations = self.recommendations[group]["recommendations"]
+            tempUsersScores = list()
+            for id in ids:
+                positions = []
+                seenItems = self.test[self.test['user_id'] == id]
+                seenItems = list(seenItems['movie_title'].values)
+                matches = list(set(seenItems) & set(recommendations))
+                if len(matches) == 0:
+                    userScore = 0
                     break
-                i += 1
-            if i == len(self.recommendations):
-                userScore = 0
-            else:
-                userScore = 1 / (math.log(i + 1, 2))  # +2 because the rank=i+1
-            groupScores.append(userScore)
-        return groupScores
+                for match in matches:
+                    positions.append(recommendations.index(match))
+                userScore = 1 / (math.log(min(positions) + 2, 2))  # +2 because the rank va de 0 a n-1
+                tempUsersScores.append(userScore)
+            groupScores.append((sum(tempUsersScores) / len(ids)))
+        totalScore = (sum(groupScores) / len(self.groups))
+        bar.finish()
+        return totalScore
 
-    def normalizedDiscountedCumulativeGain(self):
+    def normalizedDiscountedCumulativeGain(self, idcg):
         # average
+        # usersScores = list()
         groupScores = list()
-        idcg = 0
-        for i in range(len(self.recommendations)):
-            idcg = idcg + (i + 1 / (math.log(i + 2, 2)))  # +2 i +1 perque comença a 0 i acaba a 19
-        for id in self.ids:
-            # self.X[id] = (self.X[id] >= 4).astype(int)
-            i = 0
-            dcg = 0
-            relevantItems = 0
-            seenItems = self.test[self.test['user_id'] == id]
-            while i != len(self.recommendations):
-                recommendedMovie = self.recommendations[i]
-                i += 1
-                if (seenItems['movie_title'] == recommendedMovie).any():
-                    relevantItems += 1
-                dcg = dcg + (relevantItems / (math.log(i + 1, 10)))
-            userScore = dcg / idcg
-            groupScores.append(userScore)
-        return groupScores
+        bar = progressbar.ProgressBar(maxval=len(self.groups), widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar.start()
+        for group in range(len(self.groups)):
+            bar.update(group + 1)
+            ids = self.groups[group]["members"]
+            recommendations = self.recommendations[group]["recommendations"]
+            tempUsersScores = list()
+            for id in ids:
+                dcg = 0
+                seenItems = self.test[self.test['user_id'] == id]
+                seenItems = list(seenItems['movie_title'].values)
+                matches = list(set(seenItems) & set(recommendations))
+                if len(matches) == 0:
+                    userScore = 0
+                    tempUsersScores.append(userScore)
+                    continue
+                # print(recommendations)
+                # print(matches)
+                for match in matches:
+                    for i in range(recommendations.index(match), self.numOfRecommendations):
+                        dcg = dcg + (1 / (math.log(i + 2, 10)))
+                userScore = dcg / idcg
+                # print(userScore)
+                tempUsersScores.append(userScore)
+                # print('-temp-of.group', group, tempUsersScores)
+            # usersScores.append(tempUsersScores)
+            # print('--users-', usersScores)
+            groupScores.append((sum(tempUsersScores) / len(ids)))
+            # print('-----groupScores-------', groupScores)
+        totalScore = (sum(groupScores) / len(self.groups))
+        # print('-------------totalScore-------------------', totalScore)
+        bar.finish()
+        return totalScore, groupScores

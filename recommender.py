@@ -7,14 +7,16 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 import pandas as pd
 from metrics import metrics
-import progressbar
+import tensorflow_ranking as tfr
+from os import path
 
 
 import tensorflow_recommenders as tfrs
 
 
 class recommendationModel:
-    def __init__(self, config, ratings, movies, ratings_pd):
+    def __init__(self, config, ratings, movies, ratings_pd, checkpoint_filepath):
+        self.config = config
         self.embedding_dimension = config.embedding_dimension
         self.model = 0
         self.ratings = ratings
@@ -24,16 +26,24 @@ class recommendationModel:
         self.metric = config.metric
         self.numOfRecommendations = config.numOfRecommendations
         self.layers = list(config.layers)
+        self.rankingWeight = config.rankingWeight
+        self.retrievalWeight = config.retrievalWeight
+        self.ratingWeight = config.ratingWeight
+        self.epochs = config.epochs
+        self.checkpoint_filepath = checkpoint_filepath
 
     def train(self):
         # split in train and test
         ratings = self.ratings.map(lambda x: {
             "movie_title": x["movie_title"],
             "user_id": x["user_id"],
+            "user_rating": x["user_rating"],
         })
         movies = self.movies.map(lambda x: x["movie_title"])
-
         sizeDataset = len(self.ratings_pd["user_rating"].tolist())
+        train_pd = self.ratings_pd.head(int(sizeDataset * 0.8))
+        test_pd = self.ratings_pd.tail(int(sizeDataset * 0.2))
+
         unique_movie_titles = np.unique(np.concatenate(list(movies.batch(1000))))  # self.ratings_pd["movie_title"].unique()
         unique_user_ids = np.unique(np.concatenate(list(ratings.batch(1_000).map(
             lambda x: x["user_id"]))))  # self.ratings_pd["user_id"].unique()
@@ -44,50 +54,61 @@ class recommendationModel:
         cached_test = test.batch(2048).cache()
 
         # define the callbacks
-        checkpoint_filepath = '/tmp/checkpoint'
-        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath, save_weights_only=True, monitor='accuracy', mode='max')
-
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpoint_filepath, save_weights_only=True, monitor='factorized_top_k', mode='max', save_best_only=True)
         stp_callback = tf.keras.callbacks.EarlyStopping(
-            monitor='factorized_top_k/top_100_categorical_accuracy', patience=5,
+            monitor='val_root_mean_squared_error', patience=2, verbose=1, mode='min', restore_best_weights=True
         )
-        class CustomPrintingCallback(tf.keras.callbacks.Callback):
 
+        class CustomPrintingCallback(tf.keras.callbacks.Callback):
             def on_epoch_end(self, epoch, logs=None):
-                print('The proportion of true candidates in Top-100 for epoch {} is {:7.2f}.\n'.format(epoch, logs['factorized_top_k/top_100_categorical_accuracy']))
+                print('The Top K facorized of epoch {} is {:7.2f}.\n'.format(epoch, logs['factorized_top_k']))
         # fit and evaluate the model
-        model = recommenderModel(self.layers, self.embedding_dimension, unique_user_ids, unique_movie_titles, movies)
+        model = recommenderModel(self.rankingWeight, self.retrievalWeight, self.ratingWeight, self.layers,
+                                 self.embedding_dimension, unique_user_ids, unique_movie_titles, movies, self.numOfRecommendations)
         model.compile(optimizer=tf.keras.optimizers.Adagrad(learning_rate=0.1))
-        model.fit(
-            cached_train,
-            validation_data=cached_test,
-            validation_freq=5,
-            epochs=100,
-            verbose=1,
-            callbacks=[stp_callback, cp_callback]
-        )
-        # model.fit(cached_train, epochs=10, verbose=1, callbacks=[stp_callback, cp_callback])  # , CustomPrintingCallback()])  # ------------- HERE ------------
-        # model.evaluate(cached_test, return_dict=True, verbose=1)
-        self.model = model
+        if tf.train.latest_checkpoint(self.checkpoint_filepath):
+            print("Loading weights from {}".format(manager.latest_checkpoint))
+            self.model = model.load_weights(self.checkpoint_filepath)
+        else:
+            print("Initializing from scratch.")
+            model.fit(
+                cached_train,
+                validation_data=cached_test,
+                validation_freq=2,
+                epochs=self.epochs,
+                verbose=1,
+                # callbacks=[cp_callback]  # , stp_callback, CustomPrintingCallback()]
+            )
+            self.model = model
+
+        # compute ndcg for the recommender results
         if self.metricsForRecommender:
             print("Computing metrics for the recommender")
             totalScores = []
-            bar = progressbar.ProgressBar(maxval=len(unique_user_ids), widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
-            bar.start()
             i = 0
+            allRecommendations = []
+            groups = []
+            unique_user_ids = unique_user_ids.astype('U13')
             for id in unique_user_ids:
                 i += 1
-                bar.update(i)
-                users = []
-                users.append(id)
+                users = [id]
                 relMatrix = recommendationModel.predict(users, model)
+                # Delete those films that has been already seen by the user
+                _ = train_pd[train_pd['user_id'] == id]
+                seenItems = _['movie_title']
+                relMatrix = relMatrix.drop(seenItems)
+                group_dict = {
+                    "members": users
+                }
+                groups.append(group_dict)
                 recommendations = list(relMatrix.index.values[:self.numOfRecommendations])
-                test_pd = self.ratings_pd.tail(int(sizeDataset * 0.2))
-                metrics_ = metrics(test_pd, users, recommendations)
-                groupScores = metrics_.getScore(self.metric)
-                totalScores.append(groupScores[0])
-            totalScore = (sum(totalScores) / len(unique_user_ids))
-            print(totalScores)
-            print(self.metric, ':', totalScore)
+                recommendations_dict = {
+                    "recommendations": recommendations
+                }
+                allRecommendations.append(recommendations_dict)
+            metrics_ = metrics(self.config, self.ratings_pd, groups, allRecommendations)
+            score = metrics_.getScore()
+            print(self.metric, ':', score)
         return model
 
     def predict(users, model):
@@ -98,6 +119,8 @@ class recommendationModel:
         puntuations = model.puntuations(query_embedding)
         scores = puntuations[0].numpy()
         movies = puntuations[1].numpy()
+        decoder = np.vectorize(lambda x: x.decode('UTF-8'))  # necessary decode before transforming to a string
+        movies = decoder(movies)
         numpy_data = np.concatenate((movies.T, scores.T), axis=1)
         X = pd.DataFrame(data=numpy_data, columns=["movies", users[0]])
         X = X.set_index("movies")
@@ -112,11 +135,15 @@ class recommendationModel:
             puntuations = model.puntuations(query_embedding)
             scores = puntuations[0].numpy()
             movies = puntuations[1].numpy()
+            decoder = np.vectorize(lambda x: x.decode('UTF-8'))  # necessary decode before transforming to a string
+            movies = decoder(movies)
             numpy_data = np.concatenate((movies.T, scores.T), axis=1)
             x = pd.DataFrame(data=numpy_data, columns=["movies", user])
             x = x.set_index("movies")
             x.drop_duplicates(inplace=True)
             X = X.join(x, how='inner')
+        X = X.astype(float)
+        # print('duplicates', X[X.index.duplicated()])
         return X
 
 
@@ -211,22 +238,80 @@ class candidateModel(tf.keras.Model):
 
 class recommenderModel(tfrs.Model):
 
-    def __init__(self, layer_sizes, embedding_dimension, unique_user_ids, unique_movie_titles, movies):
+    def __init__(self, ranking_weight, retrieval_weight, rating_weight, layer_sizes, embedding_dimension, unique_user_ids, unique_movie_titles, movies, numOfRecommendations):
         super().__init__()
-        self.query_model = queryModel(layer_sizes, embedding_dimension, unique_user_ids)
-        self.candidate_model = candidateModel(layer_sizes, embedding_dimension, unique_movie_titles, movies)
-        self.task = tfrs.tasks.Retrieval(
+        # user, items and ratings model
+        # self.query_model = queryModel(layer_sizes, embedding_dimension, unique_user_ids)
+        # self.candidate_model = candidateModel(layer_sizes, embedding_dimension, unique_movie_titles, movies)
+        self.candidate_model = tf.keras.Sequential([
+            tf.keras.layers.experimental.preprocessing.StringLookup(
+                vocabulary=unique_movie_titles, mask_token=None),
+            tf.keras.layers.Embedding(len(unique_movie_titles) + 1, embedding_dimension)
+        ])
+        self.query_model = tf.keras.Sequential([
+            tf.keras.layers.experimental.preprocessing.StringLookup(
+                vocabulary=unique_user_ids, mask_token=None),
+            tf.keras.layers.Embedding(len(unique_user_ids) + 1, embedding_dimension)
+        ])
+        self.rating_model = tf.keras.Sequential([
+            tf.keras.layers.Dense(256, activation="relu"),
+            tf.keras.layers.Dense(128, activation="relu"),
+            tf.keras.layers.Dense(1),
+        ])
+        # the tasks -> losses and metrics
+        # loss=tfr.keras.losses.get(tfr.losses.RankingLossKey.SOFTMAX_LOSS), --> ndcg = 0.01
+        self.rating_task: tf.keras.layers.Layer = tfrs.tasks.Ranking(
+            loss=tf.keras.losses.MeanSquaredError(),
+            metrics=[tf.keras.metrics.RootMeanSquaredError()],
+        )
+        self.ranking_task = tfrs.tasks.Ranking()
+        self.retrieval_task: tf.keras.layers.Layer = tfrs.tasks.Retrieval(
+            # loss=tfr.keras.losses.get(tfr.losses.RankingLossKey.APPROX_NDCG_LOSS), don't work
             metrics=tfrs.metrics.FactorizedTopK(
                 candidates=movies.batch(128).map(self.candidate_model),
-            ),
+                k=numOfRecommendations,
+            )
         )
-        candidates = tf.data.Dataset.from_tensor_slices(unique_movie_titles)
+        '''self.rating_task: tf.keras.layers.Layer = tfrs.tasks.Ranking(
+            loss=tf.keras.losses.MeanSquaredError(),
+            metrics=[tf.keras.metrics.RootMeanSquaredError()],
+        )
+        self.retrieval_task: tf.keras.layers.Layer = tfrs.tasks.Retrieval(
+            # loss=tfr.keras.losses.get(tfr.losses.RankingLossKey.APPROX_NDCG_LOSS), don't work
+            metrics=tfrs.metrics.FactorizedTopK(
+                candidates=movies.batch(128).map(self.candidate_model)
+            )
+        )'''
+        # prediction
+        candidates_ = tf.data.Dataset.from_tensor_slices(unique_movie_titles)
         self.puntuations = tfrs.layers.corpus.DatasetIndexedTopK(
-            candidates=candidates.batch(128).map(lambda title: (title, self.candidate_model(title))),
+            candidates=candidates_.batch(128).map(lambda title: (title, self.candidate_model(title))),
             k=len(unique_movie_titles)
+        )
+        # loss weights
+        self.rating_weight = rating_weight
+        self.retrieval_weight = retrieval_weight
+        self.ranking_weight = ranking_weight
+
+    def call(self, features):
+        user_embeddings = self.query_model(features["user_id"])
+        item_embeddings = self.candidate_model(features["movie_title"])
+        return (
+            user_embeddings,
+            item_embeddings,
+            self.rating_model(
+                tf.concat([user_embeddings, item_embeddings], axis=1)
+            ),
         )
 
     def compute_loss(self, features, training=False):
-        query_embeddings = self.query_model(features["user_id"])
-        movie_embeddings = self.candidate_model(features["movie_title"])
-        return self.task(query_embeddings, movie_embeddings)
+        ratings = features.pop("user_rating")
+        user_embeddings, item_embeddings, rating_predictions = self(features)
+        rating_loss = self.rating_task(
+            labels=ratings,
+            predictions=rating_predictions,
+        )
+        ranking_loss = self.ranking_task(user_embeddings, item_embeddings)
+        retrieval_loss = self.retrieval_task(user_embeddings, item_embeddings)
+
+        return (self.rating_weight * rating_loss + self.retrieval_weight * retrieval_loss + self.ranking_weight * ranking_loss)
