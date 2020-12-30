@@ -6,6 +6,7 @@ from scipy.stats import pearsonr
 import math
 import json
 import random
+import progressbar
 
 
 class groupDetection:
@@ -25,15 +26,17 @@ class groupDetection:
         groups = list()  # llista de tots els grups amb els seus ids
         tries = 0
         notAsReference = []
-        print("I've been here, len", len(users), 'usersPerGroup', self.usersPerGroup)
+        numOfUsers = len(users)
+        bar = progressbar.ProgressBar(maxval=numOfUsers, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar.start()
         while (len(users) >= self.usersPerGroup) or (group == self.numOfGroups):  # don't compute the last 50 since it may be possible that there isn't more similar groups
-            print(users)
             if tries == 50:
                 print("not capable to make more groups with the remaining users")
                 print(len(users), "users without group in comparison with", len(removed), "num of users with group")
                 break
             X = list()  # ids d'un grup nomes
             pearsons = list()
+            toBeRemoved = list()
             refUserId = random.choice(users)
             refUser = dataset[dataset['user_id'] == refUserId]
             refMovies = refUser['movie_title'].tolist()
@@ -45,7 +48,8 @@ class groupDetection:
                 tries += 1
                 continue
             X.append(refUserId)
-            users.remove(refUserId)  # with replace it's atomatically deleted, necessary otherwise there may be duplicates when computing the pearsons
+            toBeRemoved.append(refUserId)
+            users.remove(refUserId)  # necessary otherwise there may be duplicates when computing the pearsons
             i = 0
             tries = 0
             while i < (self.usersPerGroup - 1):
@@ -54,6 +58,7 @@ class groupDetection:
                     newGroupMember = random.choice(users)
                 elif tries == 150:
                     notAsReference.append(refUserId)
+                    users.append(refUserId)
                     break
                 else:
                     newGroupMember = random.choice(removed)
@@ -74,7 +79,9 @@ class groupDetection:
                     pearsons.append(corr)
                     if tries < 40:
                         users.remove(newGroupMember)
-                        removed.append(newGroupMember)
+                    else:
+                        removed.remove(newGroupMember)
+                    toBeRemoved.append(newGroupMember)
                     tries = 0
                 if corr < 0.1 and self.groupDetection.lower() == "distinct":
                     # print('Pearsons correlation: %.3f' % corr)
@@ -83,7 +90,9 @@ class groupDetection:
                     pearsons.append(corr)
                     if tries < 40:
                         users.remove(newGroupMember)
-                        removed.append(newGroupMember)
+                    else:
+                        removed.remove(newGroupMember)
+                    toBeRemoved.append(newGroupMember)
                     tries = 0
                 if self.groupDetection.lower() == "random":
                     # print('Pearsons correlation: %.3f' % corr)
@@ -92,10 +101,12 @@ class groupDetection:
                     pearsons.append(corr)
                     if tries < 40:
                         users.remove(newGroupMember)
-                        removed.append(newGroupMember)
+                    else:
+                        removed.remove(newGroupMember)
+                    toBeRemoved.append(newGroupMember)
                     tries = 0
 
-            removed.append(refUserId)
+            removed.extend(toBeRemoved)
             group_dict = {
                 "members": X,
                 "pearsons": pearsons
@@ -103,7 +114,8 @@ class groupDetection:
             groups.append(group_dict)
             if not self.allUsers:
                 group += 1
-        open(self.path, 'x')
+            bar.update(numOfUsers - len(users))
+        bar.finish()
         with open(self.path, 'w') as fout:
             json.dump(groups, fout)
         return groups

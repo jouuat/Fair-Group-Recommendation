@@ -55,6 +55,7 @@ def run():
         for modelingStrategy in config.listOfGroupsModeling:
             scores[modelingStrategy] = list()
         for usersPerGroup in config.listOfUsersPerGroup:
+            print ('------------------', usersPerGroup, ' users per group--------------------\n')
             config.usersPerGroup = int(usersPerGroup)
             group_data_path = 'groups_' + str(config.dataset) + '_' + str(config.groupDetection) + '_' + str(config.usersPerGroup) + '.txt'
             if path.exists(group_data_path):
@@ -69,17 +70,17 @@ def run():
                 recommendation_data_path = 'recommendations_' + \
                     str(config.dataset) + '_' + str(config.groupDetection) + '_' + str(modelingStrategy) + '_' + str(config.usersPerGroup) + '.txt'
                 if path.exists(recommendation_data_path):
-                    print ('Loading recommnedations with', modelingStrategy, 'technique for groups with', usersPerGroup, ' users \n')
+                    print (modelingStrategy, 'group modeling technique \n')
                     with open(recommendation_data_path, "r") as read_file:
                         recommendations = json.load(read_file)
                 else:
-                    print ('Generating recommnedations with', modelingStrategy, 'technique for groups with', usersPerGroup, ' users \n')
+                    print (modelingStrategy, 'group modeling technique \n')
                     modeling = groupModeling(config, groups, train, recommendation_data_path)
                     recommendations = modeling.model(tfRecommender)
-                print ('Computing score for', modelingStrategy, 'technique with', config.metric, ' metric \n')
+                print ('Computing score \n')
                 metrics_ = metrics(config, test, groups, recommendations)
                 score, groupScores = metrics_.getScore()
-                print (config.metric, ':', score, '\n')
+                print (modelingStrategy, config.metric, ':', score, '\n')
                 scores[modelingStrategy].append(score)
                 # create boxplot dataset
                 usersPerGroup_ = [usersPerGroup] * len(groupScores)
@@ -91,15 +92,15 @@ def run():
                     groupScores_pd2 = pd.DataFrame(data=list(zip(groupScores, usersPerGroup_, technique_)), columns=["groupScores", "usersPerGroup", "technique"])
                     groupScores_pd = pd.concat([groupScores_pd, groupScores_pd2])
             # show the different boxplots
-            temp_boxplot = groupScores_pd[groupScores_pd["usersPerGroup"] == usersPerGroup]
-            sns.boxplot(x=temp_boxplot["technique"], y=temp_boxplot["groupScores"])
+            # temp_boxplot = groupScores_pd[groupScores_pd["usersPerGroup"] == usersPerGroup]
+            # sns.boxplot(x=temp_boxplot["technique"], y=temp_boxplot["groupScores"])
             # plt.show()
-            plt.pause(0.001)
+            # plt.pause(0.001)
         # check if our implementation is statistically different
         techniques_ = config.listOfGroupsModeling
         print(techniques_)
         print(config.listOfGroupsModeling)
-        otherTechniques = techniques_.remove("our2")
+        '''otherTechniques = techniques_.remove("our2")
         our = groupScores_pd[groupScores_pd["technique"] == "our2"]
         print(otherTechniques)
         for modelingStrategy in otherTechniques:
@@ -116,7 +117,7 @@ def run():
             if p > 0.05:
                 print('Probably our technique and', modelingStrategy, 'have the same distribution')
             else:
-                print('Probably our technique and', modelingStrategy, 'have different distribution')
+                print('Probably our technique and', modelingStrategy, 'have different distribution')'''
         # print the mean scores for each modelling technique
         for modelingStrategy in config.listOfGroupsModeling:
             meanScore = sum(scores[modelingStrategy]) / len(scores[modelingStrategy])
@@ -128,7 +129,7 @@ def run():
             color += 1
             plt.plot(scores['x'], scores[modelingStrategy], marker='o', markerfacecolor=palette(color), markersize=3, color=palette(color), linewidth=1, label=modelingStrategy)
             # plt.fill_between(scores['x'], np.array(scores[modelingStrategy]) - np.array(pearsons), np.array(scores[modelingStrategy]) + np.array(pearsons), alpha=0.5, facecolor=palette(color))
-        plt.title('%s Vs users per group for %s %s groups' % (config.metric, config.numOfGroups, config.groupDetection))
+        plt.title('%s Vs users per %s group' % (config.metric, config.groupDetection))
         plt.xlabel('users per group')
         plt.ylabel('%s' % (config.metric))
         plt.legend()

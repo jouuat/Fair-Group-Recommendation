@@ -110,8 +110,8 @@ class groupModeling:
                 satisfiedUsers = list()
                 individualRecom = []
                 # crete a dataframe with each user relevant films
+                spMatrix = relMatrix
                 for i in range(len(ids)):
-                    spMatrix = relMatrix
                     spMatrix = spMatrix.sort_values(by=[ids[i]], ascending=False, inplace=False)
                     userRelItems = list(spMatrix.index.values)[:self.numRelevantItems]
                     individualRecom.append(userRelItems)
@@ -215,53 +215,47 @@ class groupModeling:
 
             # ------------------------------- OUR --------------------------------
             if self.groupModeling.lower() == "our":
-                bestCost = math.inf
-                bestRecommendation = 0
-                iteration = 0
-                rank = 0
-                movies = relMatrix.index.tolist()
-                trainedMovies = list()
-                satUsers = [0] * len(ids)
-                # crete a dataframe with each user relevant films
+                # lastRelFilm = [0] * self.usersPerGroup
+                weights = [1] * self.usersPerGroup
+                ourMatrix = relMatrix
+                # work only with the top N individual recommendations
+                individualRecom = []
+                numOfIndRec = int((self.numOfRecommendations * 8) / self.usersPerGroup)
                 for i in range(len(ids)):
-                    relMatrix.sort_values(by=[ids[i]], ascending=False)
-                    userRelItems = list(relMatrix.index.values)[:self.numRelevantItems]
-                    if i == 0:
-                        relevantItems = pd.DataFrame(userRelItems, columns=[ids[i]])
-                        continue
-                    relevantItems[ids[i]] = userRelItems
-                tempRelMatrix = relMatrix
-                while rank <= self.numOfRecommendations:
-                    newRecommendation = np.random.choice(movies, size=1, replace=False).item(0)
-                    trainedMovies.append(newRecommendation)
-                    movies.remove(newRecommendation)
-                    tempSatUsers = satUsers
-                    for i in range(len(ids)):
-                        if newRecommendation in relevantItems[ids[i]]:
-                            tempSatUsers[i] = 0
-                        else:
-                            tempSatUsers[i] = tempSatUsers[i] + max(tempRelMatrix[ids[i]])
-                    # newCost = sum(tempSatUsers) * (np.var(tempRelMatrix.loc[newRecommendation, :]) ** (1 / float(self.nroot)))
-                    newCost = ((1 - self.lambdaOur) * sum(tempSatUsers)) + (self.lambdaOur * np.var(tempRelMatrix.loc[newRecommendation, :]))
-                    # newCost = ((1 - self.lambdaOur) * sum(tempSatUsers)) + (self.lambdaOur * (1 - min(tempRelMatrix.loc[newRecommendation, :])))
-                    if newCost < bestCost:
-                        bestCost = newCost
-                        bestRecommendation = newRecommendation
-                        bestSatUsers = tempSatUsers
-                        # print('new recommendation', bestRecommendation, 'with cost', bestCost, 'rank', rank, 'with utility',
-                        #       bestSatUsers, 'previous recommendations', recommendations, '---------------------------------')
-                        iteration = 0
-                    if iteration >= self.numOfIterations:
-                        # print('relMatrix', relMatrix, 'bestRecommendation', bestRecommendation)
-                        iteration = 0
-                        bestCost = + math.inf
-                        rank += 1
-                        satUsers = bestSatUsers
-                        recommendations.append(bestRecommendation)
-                        trainedMovies.remove(bestRecommendation)
-                        movies = movies + trainedMovies
-                        tempRelMatrix.drop([bestRecommendation])  # otherwise will appear the maximum value
-                    iteration += 1
+                    ourMatrix = ourMatrix.sort_values(by=[ids[i]], ascending=False, inplace=False)
+                    userRelItems = list(ourMatrix.index.values)[:numOfIndRec]
+                    individualRecom.extend(userRelItems)
+                # print(individualRecom)
+                individualRecom = list(set(individualRecom))
+                ourMatrix = ourMatrix.loc[individualRecom]
+                # balance the relevances
+                min_ = ourMatrix.min(axis=0).values * 2  # we multiply per two to avoid having 0 values and therefore 0 weights
+                ourMatrix = ourMatrix.sub(min_, axis=1)
+                sum_ = ourMatrix.sum(axis=0).values / len(ourMatrix.index)  # / by the num of items so that all will have a relevance similar to 1
+                ourMatrix = ourMatrix.div(sum_, axis=1)
+                refMatrix = ourMatrix
+                # newMin = ourMatrix.min(axis=0).values
+                # newMin = newMin.min()
+                for rank in range(self.numOfRecommendations):
+                    weights = np.array(weights)
+                    mean = sum(weights) / len(weights)
+                    weights = mean / weights  # users with lower values will tend to radicalize more while user with higher will tend to accept more films
+                    weights = [x**(2 / 15) for x in weights]  # necessary apply the root otherwise th e
+                    # print('weights to power', weights)
+                    prevSum = refMatrix.sum(axis=0).values
+                    ourMatrix = ourMatrix.pow(weights, axis=1)
+                    keepSum = ourMatrix.sum(axis=0).values / prevSum  # new sum / by old sum - > si abans la suma feia 0,8 que ara ho continui fent
+                    ourMatrix = ourMatrix.div(keepSum, axis=1)
+                    ourMatrix["score"] = ourMatrix.sum(axis=1)
+                    ourMatrix = ourMatrix.sort_values(by=['score'], ascending=False, inplace=False)
+                    # print(ourMatrix)
+                    recommendation = ourMatrix.index[0]
+                    ourMatrix = ourMatrix.drop(columns=['score'])
+                    weights = ourMatrix.iloc[0].values
+                    # print('weights all different to 0', weights)
+                    recommendations.append(recommendation)
+                    ourMatrix = ourMatrix.drop([recommendation])
+                    refMatrix = refMatrix.drop([recommendation])
 
             # ------------------------------- OUR 2 --------------------------------
             if self.groupModeling.lower() == "our2":
@@ -296,7 +290,6 @@ class groupModeling:
             # ------------------------------- REPUTATION --------------------------------
             if self.groupModeling.lower() == "reputation":
                 rank = 0
-                movies = relMatrix.index.tolist()
                 reputation_ = [1] * self.usersPerGroup
                 usersRatedItems = list()
                 reputationMatrix = relMatrix

@@ -9,20 +9,20 @@ embedding_dimension = 32;
 retrievalWeight = 0.00;                # ndcg increases when = 0, we keep the retrieval task for the factorized_top_k metrics
 ratingWeight = 0.85;
 rankingWeight = 1.0;
-epochs = 1;
+epochs = 12;#12
 metricsForRecommender = false;
 
 
 #GROUP DETECTION AND GROUP MODELLING CONFIGURATION
-groupDetection = random;                # k_means_with_mca / similar / distinct / random
-allUsers = false;                        # ensure that all the users are added to at least one group
+groupDetection = similar;                # k_means_with_mca / similar / distinct / random
+allUsers = true;                        # ensure that all the users are added to at least one group
 numOfGroups = 10;
-numOfRecommendations = 25;               # Number of films recommended per group
-listOfUsersPerGroup = [2 3 ];            #[2 3 4 5 6 7 8]
+numOfRecommendations = 20;              # Number of films recommended per group
+listOfUsersPerGroup = [2 3 4 5 6 7 8];            #[2 3 4 5 6 7 8]
       # average / gfar / greedylm (fairness -> Least meseary & utility -> average) / fai (add the most relevant films of each user)
       # / xpo (x pareto optimal) / spgreedy (envy free) / our / oursimplified / reputation
-listOfGroupsModeling = [ spgreedy ];    #[ gfar our2 fai reputation ] [average gfar greedylm fai xpo spgreedy our our2 reputation]
-usersPerGroup = 0;                        #just to initialize the variable in the config object
+listOfGroupsModeling = [average gfar greedylm fai xpo spgreedy our reputation];    #[ gfar our2 fai reputation ] [average gfar greedylm fai xpo spgreedy our reputation]
+usersPerGroup = 0;                      #just to initialize the variable in the config object
 groupModeling = 0;
 scale = false;                          #all the users will have the same scale of relevances
 
