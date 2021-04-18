@@ -40,12 +40,12 @@ def run():
         checkpoint_filepath = '/tmp/checkpoint_' + str(config.dataset)
         print ('----------------------------Loading dataset----------------------------\n')
         data = dataset(config)
-        ratings_tf, movies_tf, ratings_pd = data.getData()
+        ratings_tf, candidates_tf, ratings_pd = data.getData()
         sizeDataset = len(ratings_pd["user_rating"].tolist())
         train = ratings_pd.head(int(sizeDataset * 0.8))
         test = ratings_pd.tail(int(sizeDataset * 0.2))
         print ('--------------------Trainning the Recommender model--------------------\n')
-        recommenderModel = recommendationModel(config, ratings_tf, movies_tf, ratings_pd, checkpoint_filepath)
+        recommenderModel = recommendationModel(config, ratings_tf, candidates_tf, ratings_pd, checkpoint_filepath)
         tfRecommender = recommenderModel.train()
         config.listOfUsersPerGroup = list(config.listOfUsersPerGroup)  # DATParser returns a map object and we want a list
         config.listOfGroupsModeling = list(config.listOfGroupsModeling)
@@ -80,27 +80,36 @@ def run():
                 print ('Computing score \n')
                 metrics_ = metrics(config, test, groups, recommendations)
                 score, groupScores = metrics_.getScore()
+                if modelingStrategy == "gfar" or modelingStrategy == "arm":
+                    print(groupScores)
                 print (modelingStrategy, config.metric, ':', score, '\n')
-                scores[modelingStrategy].append(score)
-                # create boxplot dataset
-                usersPerGroup_ = [usersPerGroup] * len(groupScores)
-                technique_ = [modelingStrategy] * len(groupScores)
+                if config.metric.lower() != "fndcg":
+                    scores[modelingStrategy].append(score)
+                    # create boxplot dataset & x, y labels
+                    usersPerGroup_ = [usersPerGroup] * len(groupScores)
+                    technique_ = [modelingStrategy] * len(groupScores)
                 if groupScores_pd_first:
-                    groupScores_pd_first = False
-                    groupScores_pd = pd.DataFrame(data=list(zip(groupScores, usersPerGroup_, technique_)), columns=["groupScores", "usersPerGroup", "technique"])
+                    if config.metric.lower() == "fndcg":
+                        groupScores_pd_first = False
+                        groupScores_pd = pd.DataFrame(data=[[score, groupScores, modelingStrategy]], columns=["accuracy", "fairness", "technique"])
+                    else:
+                        groupScores_pd_first = False
+                        groupScores_pd = pd.DataFrame(data=list(zip(groupScores, usersPerGroup_, technique_)), columns=["groupScores", "usersPerGroup", "technique"])
                 else:
-                    groupScores_pd2 = pd.DataFrame(data=list(zip(groupScores, usersPerGroup_, technique_)), columns=["groupScores", "usersPerGroup", "technique"])
-                    groupScores_pd = pd.concat([groupScores_pd, groupScores_pd2])
+                    if config.metric.lower() == "fndcg":
+                        groupScores_pd2 = pd.DataFrame(data=[[score, groupScores, modelingStrategy]], columns=["accuracy", "fairness", "technique"])
+                        groupScores_pd = pd.concat([groupScores_pd, groupScores_pd2])
+                    else:
+                        groupScores_pd2 = pd.DataFrame(data=list(zip(groupScores, usersPerGroup_, technique_)), columns=["groupScores", "usersPerGroup", "technique"])
+                        groupScores_pd = pd.concat([groupScores_pd, groupScores_pd2])
             # show the different boxplots
             # temp_boxplot = groupScores_pd[groupScores_pd["usersPerGroup"] == usersPerGroup]
             # sns.boxplot(x=temp_boxplot["technique"], y=temp_boxplot["groupScores"])
             # plt.show()
             # plt.pause(0.001)
         # check if our implementation is statistically different
-        techniques_ = config.listOfGroupsModeling
-        print(techniques_)
-        print(config.listOfGroupsModeling)
-        '''otherTechniques = techniques_.remove("our2")
+        '''techniques_ = config.listOfGroupsModeling
+        otherTechniques = techniques_.remove("our2")
         our = groupScores_pd[groupScores_pd["technique"] == "our2"]
         print(otherTechniques)
         for modelingStrategy in otherTechniques:
@@ -119,22 +128,45 @@ def run():
             else:
                 print('Probably our technique and', modelingStrategy, 'have different distribution')'''
         # print the mean scores for each modelling technique
-        for modelingStrategy in config.listOfGroupsModeling:
-            meanScore = sum(scores[modelingStrategy]) / len(scores[modelingStrategy])
-            print(config.metric, 'mean score with', modelingStrategy, 'modeling strategy is:', meanScore)
+        if config.metric.lower() == "fndcg":
+            fndcg_lambda = 0.5
+            for modelingStrategy in config.listOfGroupsModeling:
+                strategyScores = groupScores_pd[groupScores_pd["technique"] == modelingStrategy]
+                accuracy = strategyScores["accuracy"]
+                fairness = strategyScores["accuracy"]
+                accuracy = accuracy.pow(2)
+                fairness = fairness.pow(2)
+                accuracy = accuracy.mul(fndcg_lambda)
+                fairness = fairness.mul((1 - fndcg_lambda))
+                sum_ = accuracy.add(fairness, axis=0)
+                sum_root = sum_.pow(0.5)
+                total = sum_root.sum(axis=0) / len(config.listOfGroupsModeling)
+                print(config.metric, 'mean score with', modelingStrategy, 'modeling strategy is:', total)
+        if config.metric.lower() != "fndcg":
+            for modelingStrategy in config.listOfGroupsModeling:
+                meanScore = sum(scores[modelingStrategy]) / len(scores[modelingStrategy])
+                print(config.metric, 'mean score with', modelingStrategy, 'modeling strategy is:', meanScore)
         # multiple line plot
+        print(groupScores_pd)
         palette = plt.get_cmap('Set1')  # create a color palette
         color = 0
-        for modelingStrategy in config.listOfGroupsModeling:
-            color += 1
-            plt.plot(scores['x'], scores[modelingStrategy], marker='o', markerfacecolor=palette(color), markersize=3, color=palette(color), linewidth=1, label=modelingStrategy)
-            # plt.fill_between(scores['x'], np.array(scores[modelingStrategy]) - np.array(pearsons), np.array(scores[modelingStrategy]) + np.array(pearsons), alpha=0.5, facecolor=palette(color))
-        plt.title('%s Vs users per %s group' % (config.metric, config.groupDetection))
-        plt.xlabel('users per group')
-        plt.ylabel('%s' % (config.metric))
-        plt.legend()
+        if config.metric.lower() == "fndcg":
+            for modelingStrategy in config.listOfGroupsModeling:
+                sns.scatterplot(data=groupScores_pd, x="fairness", y="accuracy", hue="technique")
+            # plt.title('Accuracy (%s) Vs Fairness / %s' % (config.metric, config.groupDetection))
+            # plt.xlabel('Fairness')
+            # plt.ylabel('Accuracy(%s)' % (config.metric))
+        else:
+            for modelingStrategy in config.listOfGroupsModeling:
+                color += 1
+                plt.plot(scores['x'], scores[modelingStrategy], marker='o', markerfacecolor=palette(color), markersize=3, color=palette(color), linewidth=1, label=modelingStrategy)
+                # plt.fill_between(scores['x'], np.array(scores[modelingStrategy]) - np.array(pearsons), np.array(scores[modelingStrategy]) + np.array(pearsons), alpha=0.5, facecolor=palette(color))
+            plt.title('%s Vs users per %s group' % (config.metric, config.groupDetection))
+            plt.xlabel('users per group')
+            plt.ylabel('%s' % (config.metric))
+            plt.legend()
         plt.show()
-        plt.pause(0.001)
+        # plt.pause(0.001)
 
     except Exception as e:
         print

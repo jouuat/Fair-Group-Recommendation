@@ -17,6 +17,7 @@ class groupDetection:
         self.ratings_pd = ratings_pd
         self.allUsers = config.allUsers
         self.path = path
+        self.dataset = config.dataset
 
     def detect(self):
         users = self.ratings_pd["user_id"].unique().tolist()
@@ -29,10 +30,24 @@ class groupDetection:
         numOfUsers = len(users)
         bar = progressbar.ProgressBar(maxval=numOfUsers, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
         bar.start()
-        while (len(users) >= self.usersPerGroup) or (group == self.numOfGroups):  # don't compute the last 50 since it may be possible that there isn't more similar groups
+        while (len(users) >= self.usersPerGroup) or (group != self.numOfGroups):  # don't compute the last 50 since it may be possible that there isn't more similar groups
+            if self.dataset.lower() == "amazongrocery5" or self.dataset.lower() == "amazoninst5":
+                break
             if tries == 50:
                 print("not capable to make more groups with the remaining users")
                 print(len(users), "users without group in comparison with", len(removed), "num of users with group")
+                '''print("remainign users assigned randomly")
+                while (len(users) >= self.usersPerGroup) or (group != self.numOfGroups):
+                    pearsons = [0] * self.usersPerGroup
+                    X = random.choice(users, self.usersPerGroup)
+                    users.remove(X)
+                    removed.append(X)
+                    group_dict = {
+                        "members": X,
+                        "pearsons": pearsons
+                    }
+                    groups.append(group_dict)
+                    group += 1'''
                 break
             X = list()  # ids d'un grup nomes
             pearsons = list()
@@ -56,12 +71,12 @@ class groupDetection:
                 tries += 1
                 if tries < 40:
                     newGroupMember = random.choice(users)
-                elif tries == 150:
+                elif tries >= 40 and tries <= 150 and len(removed) != 0:
+                    newGroupMember = random.choice(removed)
+                else:
                     notAsReference.append(refUserId)
                     users.append(refUserId)
                     break
-                else:
-                    newGroupMember = random.choice(removed)
                 new_ratings = dataset[dataset['user_id'] == newGroupMember]
                 movIndices = new_ratings['movie_title'].tolist()
                 ratings = new_ratings['user_rating'].tolist()
@@ -114,8 +129,22 @@ class groupDetection:
             groups.append(group_dict)
             if not self.allUsers:
                 group += 1
+                print(group)
             bar.update(numOfUsers - len(users))
         bar.finish()
+        if self.dataset.lower() == "amazongrocery5" or  self.dataset.lower() == "amazoninst5":
+            while len(users) > self.usersPerGroup:
+                pearsons = [0] * (self.usersPerGroup - 1)
+                X = random.sample(users, self.usersPerGroup)
+                users = list(set(users)-set(X))
+                # print(len(users), self.usersPerGroup)
+                removed.extend(X)
+                group_dict = {
+                    "members": X,
+                    "pearsons": pearsons
+                }
+                groups.append(group_dict)
+                group += 1
         with open(self.path, 'w') as fout:
             json.dump(groups, fout)
         return groups

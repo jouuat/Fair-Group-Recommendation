@@ -7,9 +7,10 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 import pandas as pd
 from metrics import metrics
-import tensorflow_ranking as tfr
+# import tensorflow_ranking as tfr
 from os import path
-
+import json
+import progressbar
 
 import tensorflow_recommenders as tfrs
 
@@ -31,6 +32,7 @@ class recommendationModel:
         self.ratingWeight = config.ratingWeight
         self.epochs = config.epochs
         self.checkpoint_filepath = checkpoint_filepath
+        self.dataset = config.dataset
 
     def train(self):
         # split in train and test
@@ -89,23 +91,40 @@ class recommendationModel:
             allRecommendations = []
             groups = []
             unique_user_ids = unique_user_ids.astype('U13')
-            for id in unique_user_ids:
-                i += 1
-                users = [id]
-                relMatrix = recommendationModel.predict(users, model)
-                # Delete those films that has been already seen by the user
-                _ = train_pd[train_pd['user_id'] == id]
-                seenItems = _['movie_title']
-                relMatrix = relMatrix.drop(seenItems)
-                group_dict = {
-                    "members": users
-                }
-                groups.append(group_dict)
-                recommendations = list(relMatrix.index.values[:self.numOfRecommendations])
-                recommendations_dict = {
-                    "recommendations": recommendations
-                }
-                allRecommendations.append(recommendations_dict)
+            group_path = 'groups_' + str(self.dataset) + '_recommender.txt'
+            recommendation_path = 'recommendations_' + str(self.dataset) + '_recommender.txt'
+            if path.exists(recommendation_path) and path.exists(group_path):
+                with open(group_path, "r") as read_file:
+                    groups = json.load(read_file)
+                with open(recommendation_path, "r") as read_file:
+                    allRecommendations = json.load(read_file)
+            else:
+                print("obtaining the recommender recommendations")
+                bar = progressbar.ProgressBar(maxval=len(unique_user_ids), widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+                bar.start()
+                for id in unique_user_ids:
+                    i += 1
+                    users = [id]
+                    relMatrix = recommendationModel.predict(users, model)
+                    # Delete those films that has been already seen by the user
+                    _ = train_pd[train_pd['user_id'] == id]
+                    seenItems = _['movie_title']
+                    relMatrix = relMatrix.drop(seenItems)
+                    group_dict = {
+                        "members": users
+                    }
+                    groups.append(group_dict)
+                    recommendations = list(relMatrix.index.values[:self.numOfRecommendations])
+                    recommendations_dict = {
+                        "recommendations": recommendations
+                    }
+                    allRecommendations.append(recommendations_dict)
+                    bar.update(i)
+                with open(group_path, 'w') as fout:
+                    json.dump(groups, fout)
+                with open(recommendation_path, 'w') as fout:
+                    json.dump(allRecommendations, fout)
+                bar.finish()
             metrics_ = metrics(self.config, self.ratings_pd, groups, allRecommendations)
             score = metrics_.getScore()
             print(self.metric, ':', score)
@@ -268,20 +287,9 @@ class recommenderModel(tfrs.Model):
         self.retrieval_task: tf.keras.layers.Layer = tfrs.tasks.Retrieval(
             # loss=tfr.keras.losses.get(tfr.losses.RankingLossKey.APPROX_NDCG_LOSS), don't work
             metrics=tfrs.metrics.FactorizedTopK(
-                candidates=movies.batch(128).map(self.candidate_model),
-                k=numOfRecommendations,
-            )
-        )
-        '''self.rating_task: tf.keras.layers.Layer = tfrs.tasks.Ranking(
-            loss=tf.keras.losses.MeanSquaredError(),
-            metrics=[tf.keras.metrics.RootMeanSquaredError()],
-        )
-        self.retrieval_task: tf.keras.layers.Layer = tfrs.tasks.Retrieval(
-            # loss=tfr.keras.losses.get(tfr.losses.RankingLossKey.APPROX_NDCG_LOSS), don't work
-            metrics=tfrs.metrics.FactorizedTopK(
                 candidates=movies.batch(128).map(self.candidate_model)
             )
-        )'''
+        )
         # prediction
         candidates_ = tf.data.Dataset.from_tensor_slices(unique_movie_titles)
         self.puntuations = tfrs.layers.corpus.DatasetIndexedTopK(
@@ -314,4 +322,4 @@ class recommenderModel(tfrs.Model):
         ranking_loss = self.ranking_task(user_embeddings, item_embeddings)
         retrieval_loss = self.retrieval_task(user_embeddings, item_embeddings)
 
-        return (self.rating_weight * rating_loss + self.retrieval_weight * retrieval_loss + self.ranking_weight * ranking_loss)
+        return (self.rating_weight * rating_loss + self.ranking_weight * ranking_loss + self.retrieval_weight * retrieval_loss) # self.retrieval_weight * retrieval_loss

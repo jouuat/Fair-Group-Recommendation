@@ -1,27 +1,30 @@
 #DATASET CONFIGURATION
-# movielens100k / movielens1m
-dataset =  movielens100k ;
+# movielens100k / movielens1m / amazonDigitalSoftware / amazonGrocery5 / amazoninst5
+dataset =  movielens100k;
 
 
 #RECOMMENDER CONFIGURATION
 layers = [ 64 32 ];
 embedding_dimension = 32;
-retrievalWeight = 0.00;                # ndcg increases when = 0, we keep the retrieval task for the factorized_top_k metrics
-ratingWeight = 0.85;
-rankingWeight = 1.0;
-epochs = 12;#12
+retrievalWeight = 0.0;                 #movielens-0, ndcg increases when = 0, we keep the retrieval task for the factorized_top_k metrics
+ratingWeight = 0.85;                   #movielens-0,85
+rankingWeight = 1.0;                   #movielens-1
+epochs = 12; #movielens-12
 metricsForRecommender = false;
 
 
-#GROUP DETECTION AND GROUP MODELLING CONFIGURATION
-groupDetection = similar;                # k_means_with_mca / similar / distinct / random
+#GROUP DETECTION
+groupDetection = distinct;              # similar / distinct / random / (deprecated) -> k_means_with_mca
 allUsers = true;                        # ensure that all the users are added to at least one group
-numOfGroups = 10;
+numOfGroups = 2;                        # if allUsers is false, then the experiments will be done just for this N number of groups
 numOfRecommendations = 20;              # Number of films recommended per group
-listOfUsersPerGroup = [2 3 4 5 6 7 8];            #[2 3 4 5 6 7 8]
-      # average / gfar / greedylm (fairness -> Least meseary & utility -> average) / fai (add the most relevant films of each user)
-      # / xpo (x pareto optimal) / spgreedy (envy free) / our / oursimplified / reputation
-listOfGroupsModeling = [average gfar greedylm fai xpo spgreedy our reputation];    #[ gfar our2 fai reputation ] [average gfar greedylm fai xpo spgreedy our reputation]
+listOfUsersPerGroup = [2 3 4 5 6 7 8];  # The size of the groups, i.e [2 3] will create N groups with two users each and N groups with 3 users each
+
+
+GROUP MODELLING CONFIGURATION
+# average / gfar / greedylm (fairness -> Least meseary & utility -> average) / fai (add the most relevant films of each user)
+# / xpo (x pareto optimal) / spgreedy (envy free) / arm / reputation
+listOfGroupsModeling = [arm gfar arm2 spgreedy greedylm fai average];    # List with the different group modeling strategies to ve evaluated
 usersPerGroup = 0;                      #just to initialize the variable in the config object
 groupModeling = 0;
 scale = false;                          #all the users will have the same scale of relevances
@@ -40,15 +43,5 @@ nroot = 2;                              #larger less importance will have the va
 
 
 #METRICS CONFIGURATION
-        # zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain)
-metric= ndcg;
-mproportionality = 1;                   #must be = 1 otherwise won't be SPGreedy and will be MPGreedy
-lambdaGreedylm = 0.5;                   #higher less important fairness and more the utility
-lambdaOur = 0.5;                        #lambdaOur
-lambdaReputation = 0.8;                 #higher values will cause higher impact on the candidates reputation with differences with the group ratings
-p = 1;                                  # 1-> sum, 2-> euclidean , 3->..
-nroot = 2;                              #larger less importance will have the variance
-
-
-#OUTPUT FILE
-solutionFile = solutions/solution.sol;
+# zrecall / dfh (DiscountedFirstHit) / ndcg (normalized Discounted Cumulative Gain) / fndcg / ndp / bndcg / ourmetric2
+metric= zrecall;
